@@ -9,6 +9,15 @@
  * 16×8 / 8×4 / 4×2 (NO 22×11 / 10×5, matemáticamente prohibidas por el adaptador).
  * El tamaño en píxeles de cada tile = width/cols (704 / 640 / 512).
  */
+/**
+ * Versión del pipeline de procesamiento (cortador + codificador). Se mezcla en el
+ * revHash de cada escena: cualquier cambio de la matemática/codec de la pirámide
+ * exige bump ⇒ todos los re-procesos generan carpetas de tiles nuevas (caché
+ * inmutable jamás intoxicada). Cambios de tour.json (p. ej. sphereCorrection) NO
+ * la tocan: son de render, no de píxeles.
+ */
+export const PIPELINE_VERSION = 1 as const;
+
 export const MASTER_WIDTH = 11264 as const;
 export const MASTER_HEIGHT = 5632 as const;
 

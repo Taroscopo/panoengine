@@ -5,6 +5,7 @@ import path from 'node:path';
 import {
   MASTER_HEIGHT,
   MASTER_WIDTH,
+  PIPELINE_VERSION,
   PREVIEW_HEIGHT,
   PREVIEW_MAX_BYTES,
   PREVIEW_WIDTH,
@@ -20,10 +21,19 @@ import exifr from 'exifr';
 import pLimit from 'p-limit';
 import sharp from 'sharp';
 
-/** Hash corto (10 hex) del master: identifica la revisión de la escena. */
+/**
+ * Hash corto (10 hex) que identifica la revisión de la escena:
+ * sha256(PIPELINE_VERSION ‖ bytes del master). La versión del pipeline entra en
+ * el hash para que cualquier cambio del cortador/codec genere carpetas nuevas
+ * (caché inmutable intacta). NO incluye campos de tour.json (sphereCorrection,
+ * hotspots…): son de render, no de píxeles.
+ */
+export function hashConPipeline(bytes: Buffer, version: number = PIPELINE_VERSION): string {
+  return createHash('sha256').update(`panoengine-v${version}:`).update(bytes).digest('hex').slice(0, 10);
+}
+
 export async function computeRevHash(masterPath: string): Promise<string> {
-  const buf = await fs.readFile(masterPath);
-  return createHash('sha256').update(buf).digest('hex').slice(0, 10);
+  return hashConPipeline(await fs.readFile(masterPath));
 }
 
 export interface QuickDerivatives {

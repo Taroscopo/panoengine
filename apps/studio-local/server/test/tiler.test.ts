@@ -4,7 +4,12 @@ import path from 'node:path';
 import { PREVIEW_MAX_BYTES, TILE_LEVELS, TOTAL_TILES_PER_SCENE } from '@panoengine/schema';
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
-import { computeRevHash, generateQuickDerivatives, generateTilePyramid } from '../src/processing/tiler.js';
+import {
+  computeRevHash,
+  generateQuickDerivatives,
+  generateTilePyramid,
+  hashConPipeline,
+} from '../src/processing/tiler.js';
 
 /** Panorama sintético con gradiente+detalles: comprueba presupuesto de KB y conteo de tiles. */
 async function crearMasterSintetico(width: number, height: number, filePath: string): Promise<void> {
@@ -31,6 +36,16 @@ describe('cortador sharp (imagen sintética)', () => {
     const h2 = await computeRevHash(master);
     expect(h1).toMatch(/^[0-9a-f]{10}$/);
     expect(h2).toBe(h1);
+  });
+
+  it('revHash mezcla PIPELINE_VERSION: bump de versión ⇒ hash distinto', () => {
+    const bytes = Buffer.from('master-de-prueba');
+    const v1 = hashConPipeline(bytes, 1);
+    const v2 = hashConPipeline(bytes, 2);
+    expect(v1).toMatch(/^[0-9a-f]{10}$/);
+    expect(v1).not.toBe(v2);
+    // mismo master + misma versión ⇒ determinista
+    expect(hashConPipeline(bytes, 1)).toBe(v1);
   });
 
   it('quick derivatives cumplen presupuestos (<40KB preview, <20KB thumb)', async () => {
