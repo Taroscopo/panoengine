@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "id": "01M582WK1ZMP3K9H9NFWA1NPME",
+  "slug": "smoke-tour",
+  "title": "Smoke Tour",
+  "hostingStatus": "active",
+  "createdAt": "2026-10-18T00:00:00.000Z",
+  "updatedAt": "2026-10-18T00:00:00.000Z",
+  "autoRotate": {
+    "enabled": false,
+    "waitTimeMs": 4000,
+    "speedDegPerSec": 2
+  },
+  "littlePlanetIntro": false,
+  "scenes": [
+    {
+      "id": "01M582WR15T76JNXH97VA5XF9C",
+      "name": "Cuadrícula",
+      "revHash": "0000000001",
+      "tiles": {
+        "width": 11264,
+        "cols": 16,
+        "rows": 8,
+        "nbLevels": 3,
+        "baseUrl": "scenes/01M582WR15T76JNXH97VA5XF9C-0000000001/preview.webp",
+        "tileUrlTemplate": "scenes/01M582WR15T76JNXH97VA5XF9C-0000000001/l{level}/{row}_{col}.webp",
+        "levels": [
+          {
+            "width": 2048,
+            "cols": 4,
+            "rows": 2
+          },
+          {
+            "width": 5120,
+            "cols": 8,
+            "rows": 4
+          },
+          {
+            "width": 11264,
+            "cols": 16,
+            "rows": 8
+          }
+        ]
+      },
+      "defaultView": {
+        "yaw": 0,
+        "pitch": 0,
+        "fov": 90
+      },
+      "zoomLimit": {
+        "min": 60,
+        "max": 150
+      },
+      "hotspots": [],
+      "patches": [],
+      "createdAt": "2026-10-18T00:00:00.000Z",
+      "updatedAt": "2026-10-18T00:00:00.000Z"
+    }
+  ],
+  "plugins": {},
+  "whatsappNumber": "+573001234567",
+  "whatsappDefaultText": "Prueba de humo",
+  "defaultSceneId": "01M582WR15T76JNXH97VA5XF9C"
+}
