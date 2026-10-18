@@ -127,14 +127,6 @@ export function iniciarTour(tour: Tour, slug: string): void {
   const virtualTour = viewer.getPlugin<VirtualTourPlugin>(VirtualTourPlugin);
   const gallery = viewer.getPlugin<GalleryPlugin>(GalleryPlugin);
 
-  // Handle de diagnóstico (auditoría): permite inspeccionar el visor desde la consola.
-  (window as unknown as { __psv: unknown }).__psv = viewer;
-  (window as unknown as { __psvPlugins: unknown }).__psvPlugins = {
-    markers,
-    virtualTour,
-    gallery,
-  };
-
   // ---- Nodos del tour a partir de las escenas ----
   // El objeto panorama se construye UNA vez por escena: lo consumen los nodos del
   // tour virtual Y los ítems de la galería (GalleryPlugin exige panorama presente
