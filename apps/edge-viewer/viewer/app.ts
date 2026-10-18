@@ -77,15 +77,9 @@ export function iniciarTour(tour: Tour, slug: string): void {
           showLinkTooltip: true,
           transitionOptions: (
             hacia: VirtualTourNode,
-            desde?: VirtualTourNode,
+            _desde?: VirtualTourNode,
             porLink?: VirtualTourLink,
           ): VirtualTourTransitionOptions => {
-            // Carga inicial (sin nodo origen): sin transición — el fundido con doble
-            // mesh durante el arranque dejaba la carga colgada de forma no
-            // determinista (verificado con eventos PSV en vivo; sin efecto en v1).
-            if (!desde) {
-              return { effect: 'none', rotation: false, showLoader: true };
-            }
             const datoLink = porLink?.data as DatoLink | undefined;
             const datoNodo = hacia.data as DatoNodo | undefined;
             let rotateTo: { yaw: number; pitch: number } | undefined;
