@@ -217,9 +217,7 @@ export function iniciarTour(tour: Tour, slug: string): void {
     }
   });
 
-  // Cambio de escena (carga inicial incluida): señal canónica del plugin de tour
-  // virtual ('node-changed' se dispara también en el arranque, a diferencia de
-  // 'panorama-loaded' del core, que en la carga inicial no siempre llega).
+  // Cambio de escena (carga inicial incluida).
   let escenaActualId: string | undefined;
   const alCambiarEscena = (): void => {
     const nodo = virtualTour.getCurrentNode();
@@ -239,6 +237,8 @@ export function iniciarTour(tour: Tour, slug: string): void {
     patches?.destruir();
     patches = crearCapaPatches(viewer, ctx, dato.escena);
   };
+  // 'node-changed' del plugin es la señal fiable (la carga inicial no siempre
+  // dispara 'panorama-loaded' del core — bisección 2/3 con smoke test ×3 FALLA).
   virtualTour.addEventListener('node-changed', alCambiarEscena);
 
   // Visibilidad de marcadores info/link según zoomRange del hotspot.
