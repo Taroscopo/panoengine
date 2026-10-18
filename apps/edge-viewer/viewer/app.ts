@@ -72,10 +72,7 @@ export function iniciarTour(tour: Tour, slug: string): void {
           dataMode: 'client',
           positionMode: 'manual',
           renderMode: '3d',
-          // Los nodos NO se pasan en la config: se cargan una sola vez con
-          // setNodes() tras la construcción. Pasarlos aquí Y llamar setNodes
-          // dispara dos cargas que se abortan mutuamente y el adaptador queda
-          // colgado sin textura (verificado con eventos PSV en vivo).
+          startNodeId: primera.id,
           linksOnCompass: false,
           showLinkTooltip: true,
           transitionOptions: (
