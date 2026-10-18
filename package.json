@@ -1,0 +1,23 @@
+{
+  "name": "panoengine",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "pnpm -r --if-present test",
+    "build": "pnpm -r --if-present build",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "dev:studio": "pnpm --filter @panoengine/studio-server dev",
+    "dev:web": "pnpm --filter @panoengine/studio-web dev",
+    "dev:edge": "pnpm --filter @panoengine/edge-viewer dev"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.2",
+    "typescript": "^5.9.3"
+  }
+}

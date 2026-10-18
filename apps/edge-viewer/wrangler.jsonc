@@ -1,0 +1,17 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "panoengine-edge-viewer",
+  "main": "src/worker/index.ts",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "./dist-viewer",
+    "binding": "ASSETS",
+    "not_found_handling": "none"
+  },
+  "r2_buckets": [
+    {
+      "binding": "TOURS",
+      "bucket_name": "panoengine-tours"
+    }
+  ]
+}

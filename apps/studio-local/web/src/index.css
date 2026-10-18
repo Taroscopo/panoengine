@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+html, body, #raiz { height: 100%; }
+body { @apply bg-slate-950 text-slate-100 font-sans; }
+
+/* Marcadores de hotspot en el editor */
+.pe-marker-edit {
+  width: 34px; height: 34px; display: grid; place-items: center;
+  border-radius: 50%; cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,.5);
+}
+.pe-marker-edit svg { width: 18px; height: 18px; fill: #fff; }
+.pe-marker-edit--nav { background: rgba(214,48,49,.85); }
+.pe-marker-edit--info { background: rgba(30,108,217,.85); }
+.pe-marker-edit--link { background: rgba(37,211,102,.9); }
+.pe-marker-edit--sel { outline: 3px solid #e8a33d; outline-offset: 2px; }

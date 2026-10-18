@@ -1,0 +1,198 @@
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: #0b0f14;
+}
+#pano {
+  position: absolute;
+  inset: 0;
+}
+
+/* ---------- Estados (carga / error / gate) ---------- */
+.estado {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  background: #0b0f14;
+  color: #e8edf2;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+/* El atributo hidden debe ganar SIEMPRE a display:grid (si no, el overlay
+   opaco tapa el visor para siempre — bug real corregido tras auditoría). */
+.estado[hidden] {
+  display: none !important;
+}
+.estado__caja {
+  text-align: center;
+  padding: 2rem;
+  max-width: 30rem;
+}
+.estado__insignia {
+  display: inline-block;
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  border: 1px solid #2c3844;
+  border-radius: 999px;
+  padding: 0.3rem 0.9rem;
+  color: #9fb2c4;
+  margin-bottom: 1rem;
+}
+.estado__caja h1 {
+  font-size: 1.4rem;
+  margin: 0 0 0.5rem;
+}
+.estado__caja p {
+  color: #9fb2c4;
+  line-height: 1.5;
+}
+.estado__boton {
+  margin-top: 1rem;
+  border: 0;
+  border-radius: 0.6rem;
+  cursor: pointer;
+  background: #e8a33d;
+  color: #1c1405;
+  font-weight: 600;
+  padding: 0.6rem 1.4rem;
+}
+.estado--girando::after {
+  content: "";
+  display: block;
+  width: 2.2rem;
+  height: 2.2rem;
+  margin: 1.2rem auto 0;
+  border: 3px solid #2c3844;
+  border-top-color: #e8a33d;
+  border-radius: 50%;
+  animation: girar 0.9s linear infinite;
+}
+@keyframes girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---------- Marcadores de hotspots ---------- */
+.pe-marker {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  cursor: pointer;
+  user-select: none;
+  font-family: system-ui, sans-serif;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+  transition: transform 0.15s ease;
+}
+.pe-marker:hover {
+  transform: scale(1.15);
+}
+.pe-marker svg {
+  width: 22px;
+  height: 22px;
+  fill: #ffffff;
+}
+.pe-marker--nav {
+  background: rgba(214, 48, 49, 0.85);
+}
+.pe-marker--info {
+  background: rgba(30, 108, 217, 0.85);
+}
+.pe-marker--link {
+  background: rgba(37, 211, 102, 0.9);
+}
+
+/* ---------- Botón flotante de WhatsApp ---------- */
+.pe-whatsapp {
+  position: absolute;
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  background: #25d366;
+  color: #06301a;
+  text-decoration: none;
+  font-family: system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 0.7rem 1.1rem;
+  border-radius: 999px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
+  max-width: min(78vw, 24rem);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pe-whatsapp svg {
+  width: 22px;
+  height: 22px;
+  fill: #06301a;
+  flex: none;
+}
+.pe-whatsapp:hover {
+  filter: brightness(1.06);
+}
+
+/* ---------- Botón de audio por escena ---------- */
+.pe-audio {
+  position: absolute;
+  left: max(1rem, env(safe-area-inset-left));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  z-index: 40;
+  width: 46px;
+  height: 46px;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  background: rgba(12, 18, 24, 0.75);
+  color: #e8edf2;
+  font-size: 1.2rem;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* ---------- Panel de información de hotspot ---------- */
+.pe-panel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 45;
+  max-width: min(30rem, 86vw);
+  max-height: 70vh;
+  overflow: auto;
+  background: rgba(12, 18, 24, 0.94);
+  color: #e8edf2;
+  border: 1px solid #2c3844;
+  border-radius: 1rem;
+  font-family: system-ui, sans-serif;
+  padding: 1.4rem 1.6rem;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+.pe-panel h2 {
+  margin: 0 0 0.6rem;
+  font-size: 1.15rem;
+}
+.pe-panel p {
+  line-height: 1.55;
+  color: #c6d2dd;
+  white-space: pre-wrap;
+}
+.pe-panel__cerrar {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.7rem;
+  border: 0;
+  cursor: pointer;
+  background: transparent;
+  color: #9fb2c4;
+  font-size: 1.1rem;
+}

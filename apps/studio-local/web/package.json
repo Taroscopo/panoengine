@@ -1,0 +1,30 @@
+{
+  "name": "@panoengine/studio-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@panoengine/schema": "workspace:*",
+    "@photo-sphere-viewer/core": "^5.7.0",
+    "@photo-sphere-viewer/markers-plugin": "^5.7.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "three": "^0.185.1",
+    "ulid": "^2.4.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "tailwindcss": "^4.1.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.0.0"
+  }
+}

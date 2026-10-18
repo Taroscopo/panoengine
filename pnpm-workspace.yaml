@@ -1,0 +1,10 @@
+packages:
+  - packages/*
+  - apps/*
+  - apps/studio-local/*
+allowBuilds:
+  esbuild: true
+  sharp: true
+  workerd: true
+minimumReleaseAgeExclude:
+  - '@cloudflare/workers-types@5.20261018.1'
