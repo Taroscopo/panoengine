@@ -9,14 +9,18 @@ export function Campo({
 }: {
   etiqueta: string;
   children: ReactNode;
-  id: string;
+  id?: string;
   ayuda?: string;
 }): React.JSX.Element {
   return (
     <div className="mb-3">
-      <label htmlFor={id} className="mb-1 block text-xs font-medium text-texto-suave">
-        {etiqueta}
-      </label>
+      {id !== undefined ? (
+        <label htmlFor={id} className="mb-1 block text-xs font-medium text-texto-suave">
+          {etiqueta}
+        </label>
+      ) : (
+        <span className="mb-1 block text-xs font-medium text-texto-suave">{etiqueta}</span>
+      )}
       {children}
       {ayuda && <p className="mt-1 text-xs text-texto-tenue">{ayuda}</p>}
     </div>

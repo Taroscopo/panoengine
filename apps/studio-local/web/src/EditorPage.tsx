@@ -3,9 +3,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ulid } from 'ulid';
 import { api, type SceneJob } from './api.js';
 import { Boton } from './componentes/Boton.js';
+import { Campo, inputCls } from './componentes/Campo.js';
 import { Icono } from './componentes/Icono.js';
 import { Insignia } from './componentes/Insignia.js';
 import { Pestanas } from './componentes/Pestanas.js';
+import { Segmentado } from './componentes/Segmentado.js';
 import { avisoBorradoDist } from './mensaje-borrado.js';
 import { PanoPreview } from './PanoPreview.js';
 
@@ -27,6 +29,7 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
   const [publicando, setPublicando] = useState(false);
   const [resultadoPublicar, setResultadoPublicar] = useState<string | null>(null);
   const [pestana, setPestana] = useState<'editor' | 'contacto' | 'ajustes'>('editor');
+  const [panelDerecho, setPanelDerecho] = useState<'escena' | 'punto'>('escena');
   const archivoRef = useRef<HTMLInputElement>(null);
 
   const recargar = useCallback(async (): Promise<void> => {
@@ -263,11 +266,11 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
           id="panel-editor"
           role="tabpanel"
           aria-labelledby="pestana-editor"
-          className="grid min-h-0 flex-1 grid-cols-[260px_1fr_340px]"
+          className="grid min-h-0 flex-1 grid-cols-[264px_1fr_320px]"
         >
           {/* ---------- Columna escenas ---------- */}
-          <aside className="flex min-h-0 flex-col border-r border-slate-800">
-            <div className="border-b border-slate-800 p-3">
+          <aside className="flex min-h-0 flex-col border-r border-linea bg-panel">
+            <div className="border-b border-linea p-3">
               <input
                 ref={archivoRef}
                 type="file"
@@ -276,54 +279,47 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
                 className="hidden"
                 onChange={(e) => void subir(e.target.files)}
               />
-              <button
-                type="button"
+              <Boton
+                variante="secundario"
+                icono="subir"
                 disabled={subiendo}
-                className="w-full rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold disabled:opacity-50"
+                className="w-full"
                 onClick={() => archivoRef.current?.click()}
               >
-                {subiendo ? 'Procesando…' : '⬆ Subir panorámica JPG'}
-              </button>
-              <p className="mt-2 text-xs text-slate-500">
-                Insta360 X5 (11904×5952). El preview queda listo en segundos; los tiles se cortan en segundo
-                plano.
-              </p>
+                {subiendo ? 'Procesando…' : 'Subir panorámicas 360°'}
+              </Boton>
             </div>
             <ul className="min-h-0 flex-1 overflow-y-auto p-2">
               {tour.scenes.map((s) => {
                 const job = jobs.find((j) => j.sceneId === s.id);
+                const enCurso = job !== undefined && (job.status === 'running' || job.status === 'queued');
+                const porcentaje = job && job.total > 0 ? Math.round((job.done / job.total) * 100) : 0;
                 return (
                   <li key={s.id}>
                     <button
                       type="button"
-                      className={`mb-2 flex w-full items-center gap-3 rounded-lg border p-2 text-left ${
-                        s.id === escenaId
-                          ? 'border-amber-500 bg-slate-900'
-                          : 'border-slate-800 hover:border-slate-600'
+                      className={`mb-1.5 flex w-full items-center gap-2.5 rounded-control border p-2 text-left transition-colors ${
+                        s.id === escenaId ? 'border-azul bg-azul/10' : 'border-transparent hover:bg-tarjeta'
                       }`}
                       onClick={() => {
                         setEscenaId(s.id);
                         setHotspotSel(null);
+                        setPanelDerecho('escena');
                       }}
                     >
                       <img
                         src={api.archivoEscena(slug, s, 'thumb.webp')}
                         alt=""
-                        className="h-10 w-20 flex-none rounded object-cover"
+                        className="h-9 w-16 flex-none rounded-control border border-linea object-cover"
                       />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-medium">{s.name}</span>
-                        {job && job.status !== 'done' ? (
-                          <span className="mt-1 block">
-                            <progress className="h-1.5 w-full" value={job.done} max={job.total} />
-                            <span className="text-xs text-slate-500">
-                              {job.status === 'error'
-                                ? `Error: ${job.error}`
-                                : `${job.done}/${job.total} tiles (L${job.level})`}
-                            </span>
-                          </span>
+                        {job?.status === 'error' ? (
+                          <span className="mt-0.5 block text-xs text-rojo">Error: {job.error}</span>
+                        ) : enCurso ? (
+                          <span className="mt-0.5 block text-xs text-ambar">Procesando… {porcentaje} %</span>
                         ) : (
-                          <span className="text-xs text-emerald-500">✓ 168 tiles</span>
+                          <span className="mt-0.5 block text-xs text-verde">Lista</span>
                         )}
                       </span>
                     </button>
@@ -333,69 +329,94 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
             </ul>
           </aside>
 
-          {/* ---------- Visor ---------- */}
-          <section className="min-h-0 p-3">
-            {escena ? (
-              <div className="flex h-full flex-col gap-2">
-                <div className="flex items-center gap-2">
-                  {(['nav', 'info', 'link'] as const).map((tipo) => (
-                    <button
-                      key={tipo}
-                      type="button"
-                      className={`rounded-lg px-3 py-1.5 text-sm ${
-                        modoAgregar === tipo
-                          ? 'bg-amber-500 font-semibold text-slate-950'
-                          : 'bg-slate-800 hover:bg-slate-700'
-                      }`}
-                      onClick={() => setModoAgregar(modoAgregar === tipo ? null : tipo)}
-                    >
-                      + {tipo === 'nav' ? 'navegación' : tipo === 'info' ? 'info' : 'enlace'}
-                    </button>
-                  ))}
-                  <span className="ml-auto text-xs text-slate-500">
-                    Escena: {escena.name} · rev {escena.revHash}
-                  </span>
-                </div>
-                <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-slate-800">
+          {/* ---------- Vista 360° ---------- */}
+          <section className="flex min-h-0 flex-col">
+            <div className="flex items-center gap-2 border-b border-linea bg-panel px-4 py-2">
+              <span className="text-xs text-texto-tenue">Añadir punto:</span>
+              {(
+                [
+                  { tipo: 'nav', titulo: 'Ir a otra escena', icono: 'flecha' },
+                  { tipo: 'info', titulo: 'Información', icono: 'info' },
+                  { tipo: 'link', titulo: 'Enlace', icono: 'enlace' },
+                ] as const
+              ).map(({ tipo, titulo, icono }) => (
+                <button
+                  key={tipo}
+                  type="button"
+                  aria-pressed={modoAgregar === tipo}
+                  onClick={() => setModoAgregar(modoAgregar === tipo ? null : tipo)}
+                  className={`inline-flex items-center gap-1.5 rounded-control border px-2.5 py-1 text-sm transition-colors ${
+                    modoAgregar === tipo
+                      ? 'border-azul/60 bg-azul/10 text-azul'
+                      : 'border-linea text-texto-suave hover:text-texto'
+                  }`}
+                >
+                  <Icono nombre={icono} className="h-3.5 w-3.5" />
+                  {titulo}
+                </button>
+              ))}
+              {escena && (
+                <span className="ml-auto truncate text-xs text-texto-tenue">Escena: {escena.name}</span>
+              )}
+            </div>
+            <div className="min-h-0 flex-1 p-3">
+              {escena ? (
+                <div className="h-full overflow-hidden rounded-tarjeta border border-linea">
                   <PanoPreview
                     previewUrl={api.archivoEscena(slug, escena, 'preview.webp')}
                     hotspots={escena.hotspots}
                     hotspotSeleccionado={hotspotSel}
                     modoAgregar={modoAgregar}
                     onAgregar={(yaw, pitch) => void agregarHotspot(yaw, pitch)}
-                    onSeleccionar={setHotspotSel}
+                    onSeleccionar={(id) => {
+                      setHotspotSel(id);
+                      setPanelDerecho('punto');
+                    }}
                   />
                 </div>
-              </div>
-            ) : (
-              <div className="grid h-full place-items-center text-slate-500">
-                Sube la primera panorámica para empezar.
-              </div>
-            )}
+              ) : (
+                <div className="grid h-full place-items-center text-texto-tenue">
+                  Sube la primera panorámica para empezar.
+                </div>
+              )}
+            </div>
           </section>
 
-          {/* ---------- Inspector ---------- */}
-          <aside className="min-h-0 overflow-y-auto border-l border-slate-800 p-4 text-sm">
-            <DetalleTour tour={tour} onGuardar={guardarTour} />
-            {escena && (
-              <DetalleEscena
-                escena={escena}
-                tour={tour}
-                job={jobDeEscena}
-                onGuardar={guardarEscena}
-                onBorrar={() => void borrarEscena()}
+          {/* ---------- Panel derecho ---------- */}
+          <aside className="flex min-h-0 flex-col border-l border-linea bg-panel">
+            <div className="border-b border-linea p-3">
+              <Segmentado
+                etiqueta="Panel de edición"
+                opciones={[
+                  { id: 'escena', titulo: 'Escena' },
+                  { id: 'punto', titulo: 'Punto' },
+                ]}
+                valor={panelDerecho}
+                onChange={setPanelDerecho}
               />
-            )}
-            {escena && (
-              <DetalleHotspots
-                escena={escena}
-                tour={tour}
-                seleccionado={hotspotActual}
-                onSeleccionar={setHotspotSel}
-                onActualizar={(id, cambios) => void actualizarHotspot(id, cambios)}
-                onBorrar={(id) => void borrarHotspot(id)}
-              />
-            )}
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-4 text-sm">
+              {panelDerecho === 'escena'
+                ? escena && (
+                    <DetalleEscena
+                      escena={escena}
+                      tour={tour}
+                      job={jobDeEscena}
+                      onGuardar={guardarEscena}
+                      onBorrar={() => void borrarEscena()}
+                    />
+                  )
+                : escena && (
+                    <DetalleHotspots
+                      escena={escena}
+                      tour={tour}
+                      seleccionado={hotspotActual}
+                      onSeleccionar={setHotspotSel}
+                      onActualizar={(id, cambios) => void actualizarHotspot(id, cambios)}
+                      onBorrar={(id) => void borrarHotspot(id)}
+                    />
+                  )}
+            </div>
           </aside>
         </div>
       )}
@@ -421,14 +442,14 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
           id="panel-ajustes"
           role="tabpanel"
           aria-labelledby="pestana-ajustes"
-          className="grid flex-1 place-items-center p-8"
+          className="mx-auto w-full max-w-xl overflow-y-auto p-8"
         >
-          <div className="rounded-tarjeta border border-linea bg-tarjeta px-8 py-6 text-center">
-            <h2 className="mb-1 font-semibold">Ajustes</h2>
-            <p className="text-sm text-texto-suave">
-              Título, estado, vencimiento y comportamiento — se completan en la etapa 5 del rediseño.
-            </p>
-          </div>
+          <p className="mb-4 flex items-center gap-2 rounded-control border border-linea bg-tarjeta px-3 py-2 text-xs text-texto-suave">
+            <Icono nombre="alerta" className="h-3.5 w-3.5" />
+            Campos del tour alojados aquí provisionalmente; se reorganizan en Contacto y marca / Ajustes en la
+            etapa 5.
+          </p>
+          <DetalleTour tour={tour} onGuardar={guardarTour} />
         </section>
       )}
     </main>
@@ -436,18 +457,6 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
 }
 
 /* ------------------------------------------------------------------ */
-
-function Campo({ etiqueta, children }: { etiqueta: string; children: React.ReactNode }): React.JSX.Element {
-  return (
-    <div className="mb-2 block">
-      <span className="mb-1 block text-xs uppercase tracking-wide text-slate-500">{etiqueta}</span>
-      {children}
-    </div>
-  );
-}
-
-const inputCls =
-  'w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-sm focus:border-amber-500 focus:outline-none';
 
 function DetalleTour({
   tour,
@@ -627,118 +636,145 @@ function DetalleEscena({
     });
   }, [escena]);
   return (
-    <section className="mb-6 rounded-xl border border-slate-800 bg-slate-900/60 p-4">
-      <h2 className="mb-3 font-semibold">Escena</h2>
-      <Campo etiqueta="Nombre">
+    <div>
+      <Campo id="esc-nombre" etiqueta="Nombre">
         <input
+          id="esc-nombre"
           className={inputCls}
           value={form.name}
           onChange={(e) => setForm({ ...form, name: e.target.value })}
         />
       </Campo>
-      <div className="grid grid-cols-3 gap-2">
-        <Campo etiqueta="Yaw °">
-          <input
-            type="number"
-            step="0.1"
-            className={inputCls}
-            value={form.yaw}
-            onChange={(e) => setForm({ ...form, yaw: Number(e.target.value) })}
-          />
-        </Campo>
-        <Campo etiqueta="Pitch °">
-          <input
-            type="number"
-            step="0.1"
-            className={inputCls}
-            value={form.pitch}
-            onChange={(e) => setForm({ ...form, pitch: Number(e.target.value) })}
-          />
-        </Campo>
-        <Campo etiqueta="FOV °">
-          <input
-            type="number"
-            className={inputCls}
-            value={form.fov}
-            onChange={(e) => setForm({ ...form, fov: Number(e.target.value) })}
-          />
-        </Campo>
+
+      <div className="mb-4 rounded-tarjeta border border-linea bg-tarjeta p-3">
+        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-texto-tenue">Vista inicial</p>
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div>
+            <p className="text-lg font-semibold">{form.yaw.toFixed(0)}°</p>
+            <p className="text-xs text-texto-tenue">Giro</p>
+          </div>
+          <div>
+            <p className="text-lg font-semibold">{form.pitch.toFixed(0)}°</p>
+            <p className="text-xs text-texto-tenue">Altura de la mirada</p>
+          </div>
+          <div>
+            <p className="text-lg font-semibold">{form.fov.toFixed(0)}°</p>
+            <p className="text-xs text-texto-tenue">Zoom</p>
+          </div>
+        </div>
+        <div className="mt-2 grid grid-cols-3 gap-2">
+          <label className="text-xs text-texto-tenue">
+            Giro
+            <input
+              type="number"
+              step="0.1"
+              className="mt-0.5 w-full rounded-control border border-linea bg-fondo px-2 py-1 text-sm text-texto"
+              value={form.yaw}
+              onChange={(e) => setForm({ ...form, yaw: Number(e.target.value) })}
+            />
+          </label>
+          <label className="text-xs text-texto-tenue">
+            Altura
+            <input
+              type="number"
+              step="0.1"
+              className="mt-0.5 w-full rounded-control border border-linea bg-fondo px-2 py-1 text-sm text-texto"
+              value={form.pitch}
+              onChange={(e) => setForm({ ...form, pitch: Number(e.target.value) })}
+            />
+          </label>
+          <label className="text-xs text-texto-tenue">
+            Zoom
+            <input
+              type="number"
+              className="mt-0.5 w-full rounded-control border border-linea bg-fondo px-2 py-1 text-sm text-texto"
+              value={form.fov}
+              onChange={(e) => setForm({ ...form, fov: Number(e.target.value) })}
+            />
+          </label>
+        </div>
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <Campo etiqueta="Zoom mín (FOV)">
-          <input
-            type="number"
-            className={inputCls}
-            value={form.zoomMin}
-            onChange={(e) => setForm({ ...form, zoomMin: Number(e.target.value) })}
-          />
-        </Campo>
-        <Campo etiqueta="Zoom máx (FOV)">
-          <input
-            type="number"
-            className={inputCls}
-            value={form.zoomMax}
-            onChange={(e) => setForm({ ...form, zoomMax: Number(e.target.value) })}
-          />
-        </Campo>
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        <Campo etiqueta="Latitud">
-          <input
-            className={inputCls}
-            value={form.lat}
-            onChange={(e) => setForm({ ...form, lat: e.target.value })}
-          />
-        </Campo>
-        <Campo etiqueta="Longitud">
-          <input
-            className={inputCls}
-            value={form.lng}
-            onChange={(e) => setForm({ ...form, lng: e.target.value })}
-          />
-        </Campo>
-      </div>
-      <Campo etiqueta="GSV ID">
-        <input
-          className={inputCls}
-          value={form.gsvId}
-          onChange={(e) => setForm({ ...form, gsvId: e.target.value })}
-        />
-      </Campo>
-      <div className="flex gap-2">
-        <button
-          type="button"
-          className="flex-1 rounded-lg bg-slate-700 py-1.5 font-medium hover:bg-slate-600"
-          onClick={() =>
-            void onGuardar({
-              name: form.name,
-              defaultView: { yaw: form.yaw, pitch: form.pitch, fov: form.fov },
-              zoomLimit: { min: form.zoomMin, max: form.zoomMax },
-              ...(form.lat !== '' ? { lat: Number(form.lat) } : {}),
-              ...(form.lng !== '' ? { lng: Number(form.lng) } : {}),
-              ...(form.gsvId !== '' || form.gsvUrl !== ''
-                ? {
-                    gsv: {
-                      ...(form.gsvId !== '' ? { gsvId: form.gsvId } : {}),
-                      ...(form.gsvUrl !== '' ? { gsvUrl: form.gsvUrl } : {}),
-                    },
-                  }
-                : {}),
-            })
-          }
-        >
-          Guardar escena
-        </button>
-        <button
-          type="button"
-          className="rounded-lg border border-red-800 px-3 py-1.5 text-red-300 hover:bg-red-950"
-          onClick={onBorrar}
-          disabled={tour.scenes.length <= 1 || job?.status === 'running'}
-        >
-          Eliminar
-        </button>
-      </div>
-    </section>
+
+      <details className="mb-4 rounded-control border border-linea bg-tarjeta px-3 py-2">
+        <summary className="cursor-pointer text-sm text-texto-suave">Avanzado</summary>
+        <div className="mt-3">
+          <div className="grid grid-cols-2 gap-2">
+            <label className="text-xs text-texto-tenue">
+              Zoom mínimo
+              <input
+                type="number"
+                className="mt-0.5 w-full rounded-control border border-linea bg-fondo px-2 py-1 text-sm text-texto"
+                value={form.zoomMin}
+                onChange={(e) => setForm({ ...form, zoomMin: Number(e.target.value) })}
+              />
+            </label>
+            <label className="text-xs text-texto-tenue">
+              Zoom máximo
+              <input
+                type="number"
+                className="mt-0.5 w-full rounded-control border border-linea bg-fondo px-2 py-1 text-sm text-texto"
+                value={form.zoomMax}
+                onChange={(e) => setForm({ ...form, zoomMax: Number(e.target.value) })}
+              />
+            </label>
+          </div>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <label className="text-xs text-texto-tenue">
+              Latitud
+              <input
+                className="mt-0.5 w-full rounded-control border border-linea bg-fondo px-2 py-1 text-sm text-texto"
+                value={form.lat}
+                onChange={(e) => setForm({ ...form, lat: e.target.value })}
+              />
+            </label>
+            <label className="text-xs text-texto-tenue">
+              Longitud
+              <input
+                className="mt-0.5 w-full rounded-control border border-linea bg-fondo px-2 py-1 text-sm text-texto"
+                value={form.lng}
+                onChange={(e) => setForm({ ...form, lng: e.target.value })}
+              />
+            </label>
+          </div>
+          <label className="mt-2 block text-xs text-texto-tenue">
+            ID de Street View
+            <input
+              className="mt-0.5 w-full rounded-control border border-linea bg-fondo px-2 py-1 text-sm text-texto"
+              value={form.gsvId}
+              onChange={(e) => setForm({ ...form, gsvId: e.target.value })}
+            />
+          </label>
+        </div>
+      </details>
+
+      <Boton
+        variante="primario"
+        className="mb-6 w-full"
+        disabled={tour.scenes.length <= 1 || job?.status === 'running'}
+        onClick={() =>
+          void onGuardar({
+            name: form.name,
+            defaultView: { yaw: form.yaw, pitch: form.pitch, fov: form.fov },
+            zoomLimit: { min: form.zoomMin, max: form.zoomMax },
+            ...(form.lat !== '' ? { lat: Number(form.lat) } : {}),
+            ...(form.lng !== '' ? { lng: Number(form.lng) } : {}),
+            ...(form.gsvId !== '' || form.gsvUrl !== ''
+              ? {
+                  gsv: {
+                    ...(form.gsvId !== '' ? { gsvId: form.gsvId } : {}),
+                    ...(form.gsvUrl !== '' ? { gsvUrl: form.gsvUrl } : {}),
+                  },
+                }
+              : {}),
+          })
+        }
+      >
+        Guardar escena
+      </Boton>
+      <Boton variante="peligro" icono="papelera" className="w-full" onClick={onBorrar}>
+        Eliminar escena
+      </Boton>
+    </div>
   );
 }
 
@@ -802,7 +838,7 @@ function DetalleHotspots({
             />
           </Campo>
           <div className="grid grid-cols-2 gap-2">
-            <Campo etiqueta="Yaw °">
+            <Campo etiqueta="Giro (°)">
               <input
                 type="number"
                 step="0.1"
@@ -811,7 +847,7 @@ function DetalleHotspots({
                 onBlur={(e) => onActualizar(seleccionado.id, { yaw: Number(e.target.value) })}
               />
             </Campo>
-            <Campo etiqueta="Pitch °">
+            <Campo etiqueta="Altura de la mirada (°)">
               <input
                 type="number"
                 step="0.1"
@@ -839,7 +875,7 @@ function DetalleHotspots({
                 </select>
               </Campo>
               <div className="grid grid-cols-3 gap-2">
-                <Campo etiqueta="T. Yaw °">
+                <Campo etiqueta="Giro al llegar (°)">
                   <input
                     type="number"
                     className={inputCls}
@@ -847,7 +883,7 @@ function DetalleHotspots({
                     onBlur={(e) => onActualizar(seleccionado.id, { targetYaw: Number(e.target.value) })}
                   />
                 </Campo>
-                <Campo etiqueta="T. Pitch °">
+                <Campo etiqueta="Altura al llegar (°)">
                   <input
                     type="number"
                     className={inputCls}
@@ -855,7 +891,7 @@ function DetalleHotspots({
                     onBlur={(e) => onActualizar(seleccionado.id, { targetPitch: Number(e.target.value) })}
                   />
                 </Campo>
-                <Campo etiqueta="T. FOV °">
+                <Campo etiqueta="Zoom al llegar (°)">
                   <input
                     type="number"
                     className={inputCls}

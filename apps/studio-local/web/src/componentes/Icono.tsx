@@ -9,6 +9,11 @@ const T = {
     'M4 7h16M10 11v6M14 11v6M6 7l1 13a1 1 0 001 1h8a1 1 0 001-1l1-13M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3',
   escape: 'M6 6l12 12M18 6L6 18',
   check: 'M4 12l5 5L20 7',
+  flecha: 'M5 12h14M13 6l6 6-6 6',
+  info: 'M12 22a10 10 0 100-20 10 10 0 000 20zM12 16v-4M12 8h.01',
+  enlace:
+    'M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71',
+  subir: 'M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12',
 } as const;
 
 export type NombreIcono = keyof typeof T;
