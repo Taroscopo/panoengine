@@ -232,8 +232,12 @@ export function iniciarTour(tour: Tour, slug: string): void {
     patches?.destruir();
     patches = crearCapaPatches(viewer, ctx, dato.escena);
   };
-  // 'node-changed' del plugin es la señal fiable (la carga inicial no siempre
-  // dispara 'panorama-loaded' del core — bisección 2/3 con smoke test ×3 FALLA).
+  // 'node-changed' del plugin es la señal fiable en la carga inicial. Evidencia
+  // final (intercepción de dispatchEvent desde init, sin tocar código): en una
+  // corrida 'panorama-loaded' y 'node-changed' salieron a 1 ms de diferencia;
+  // en otras tres corridas del smoke, 'panorama-loaded' NO llegó en 30 s
+  // (waitForSelector '.pe-whatsapp' timeout ×3) mientras 'node-changed' se
+  // dispara SIEMPRE al final de la cadena de éxito de setCurrentNode.
   virtualTour.addEventListener('node-changed', alCambiarEscena);
 
   // Visibilidad de marcadores info/link según zoomRange del hotspot.
