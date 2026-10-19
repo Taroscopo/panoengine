@@ -2,6 +2,10 @@ import type { Hotspot, Scene, Tour } from '@panoengine/schema';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ulid } from 'ulid';
 import { api, type SceneJob } from './api.js';
+import { Boton } from './componentes/Boton.js';
+import { Icono } from './componentes/Icono.js';
+import { Insignia } from './componentes/Insignia.js';
+import { Pestanas } from './componentes/Pestanas.js';
 import { avisoBorradoDist } from './mensaje-borrado.js';
 import { PanoPreview } from './PanoPreview.js';
 
@@ -22,6 +26,7 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
   const [subiendo, setSubiendo] = useState(false);
   const [publicando, setPublicando] = useState(false);
   const [resultadoPublicar, setResultadoPublicar] = useState<string | null>(null);
+  const [pestana, setPestana] = useState<'editor' | 'contacto' | 'ajustes'>('editor');
   const archivoRef = useRef<HTMLInputElement>(null);
 
   const recargar = useCallback(async (): Promise<void> => {
@@ -204,171 +209,211 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
 
   return (
     <main className="flex h-full flex-col">
-      <header className="flex items-center justify-between border-b border-slate-800 px-6 py-3">
-        <div className="flex items-center gap-4">
-          <button type="button" className="text-slate-400 hover:text-white" onClick={onVolver}>
-            ← Tours
-          </button>
-          <h1 className="text-lg font-bold">{tour.title}</h1>
-          <span className="rounded bg-slate-800 px-2 py-0.5 font-mono text-xs text-slate-400">
-            /tours/{slug}
-          </span>
-          {tour.hostingStatus === 'suspended' && (
-            <span className="rounded bg-red-900 px-2 py-0.5 text-xs text-red-300">suspendido</span>
+      <header className="flex items-center gap-4 border-b border-linea bg-panel px-6 py-2.5">
+        <button
+          type="button"
+          onClick={onVolver}
+          className="inline-flex items-center gap-1.5 text-sm text-texto-suave hover:text-texto"
+        >
+          <Icono nombre="volver" />
+          Tours
+        </button>
+        <h1 className="text-base font-semibold">{tour.title}</h1>
+        <Insignia tono={tour.hostingStatus === 'suspended' ? 'rojo' : 'verde'}>
+          {tour.hostingStatus === 'suspended' ? 'Suspendido' : 'Activo'}
+        </Insignia>
+        <nav className="mx-auto">
+          <Pestanas
+            etiqueta="Secciones del tour"
+            pestanas={[
+              { id: 'editor', titulo: 'Editor' },
+              { id: 'contacto', titulo: 'Contacto y marca' },
+              { id: 'ajustes', titulo: 'Ajustes' },
+            ]}
+            valor={pestana}
+            onChange={setPestana}
+          />
+        </nav>
+        <div className="flex items-center gap-2">
+          {mensaje && (
+            <span className="inline-flex items-center gap-1.5 text-sm text-texto-suave" role="status">
+              <Icono nombre="check" className="h-3.5 w-3.5 text-verde" />
+              {mensaje}
+            </span>
           )}
-        </div>
-        <div className="flex items-center gap-3">
-          {mensaje && <span className="text-sm text-emerald-400">{mensaje}</span>}
-          <button
-            type="button"
-            disabled={publicando}
-            className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-amber-400 disabled:opacity-50"
-            onClick={() => void publicar()}
-          >
-            {publicando ? 'Publicando…' : '🚀 Publicar'}
-          </button>
+          <Boton variante="secundario" icono="ojo" disabled title="Disponible en una etapa posterior">
+            Vista previa
+          </Boton>
+          <Boton variante="primario" icono="nube" disabled={publicando} onClick={() => void publicar()}>
+            {publicando ? 'Publicando…' : 'Publicar'}
+          </Boton>
         </div>
       </header>
       {resultadoPublicar && (
-        <div className="border-b border-amber-900/50 bg-amber-950/40 px-6 py-2 text-sm text-amber-200">
+        <div className="flex items-center gap-2 border-b border-ambar/40 bg-ambar/10 px-6 py-2 text-sm text-ambar">
+          <Icono nombre="alerta" />
           {resultadoPublicar}
         </div>
       )}
 
-      <div className="grid min-h-0 flex-1 grid-cols-[260px_1fr_340px]">
-        {/* ---------- Columna escenas ---------- */}
-        <aside className="flex min-h-0 flex-col border-r border-slate-800">
-          <div className="border-b border-slate-800 p-3">
-            <input
-              ref={archivoRef}
-              type="file"
-              accept="image/jpeg"
-              multiple
-              className="hidden"
-              onChange={(e) => void subir(e.target.files)}
-            />
-            <button
-              type="button"
-              disabled={subiendo}
-              className="w-full rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold disabled:opacity-50"
-              onClick={() => archivoRef.current?.click()}
-            >
-              {subiendo ? 'Procesando…' : '⬆ Subir panorámica JPG'}
-            </button>
-            <p className="mt-2 text-xs text-slate-500">
-              Insta360 X5 (11904×5952). El preview queda listo en segundos; los tiles se cortan en segundo
-              plano.
+      {pestana === 'editor' && (
+        <div className="grid min-h-0 flex-1 grid-cols-[260px_1fr_340px]">
+          {/* ---------- Columna escenas ---------- */}
+          <aside className="flex min-h-0 flex-col border-r border-slate-800">
+            <div className="border-b border-slate-800 p-3">
+              <input
+                ref={archivoRef}
+                type="file"
+                accept="image/jpeg"
+                multiple
+                className="hidden"
+                onChange={(e) => void subir(e.target.files)}
+              />
+              <button
+                type="button"
+                disabled={subiendo}
+                className="w-full rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold disabled:opacity-50"
+                onClick={() => archivoRef.current?.click()}
+              >
+                {subiendo ? 'Procesando…' : '⬆ Subir panorámica JPG'}
+              </button>
+              <p className="mt-2 text-xs text-slate-500">
+                Insta360 X5 (11904×5952). El preview queda listo en segundos; los tiles se cortan en segundo
+                plano.
+              </p>
+            </div>
+            <ul className="min-h-0 flex-1 overflow-y-auto p-2">
+              {tour.scenes.map((s) => {
+                const job = jobs.find((j) => j.sceneId === s.id);
+                return (
+                  <li key={s.id}>
+                    <button
+                      type="button"
+                      className={`mb-2 flex w-full items-center gap-3 rounded-lg border p-2 text-left ${
+                        s.id === escenaId
+                          ? 'border-amber-500 bg-slate-900'
+                          : 'border-slate-800 hover:border-slate-600'
+                      }`}
+                      onClick={() => {
+                        setEscenaId(s.id);
+                        setHotspotSel(null);
+                      }}
+                    >
+                      <img
+                        src={api.archivoEscena(slug, s, 'thumb.webp')}
+                        alt=""
+                        className="h-10 w-20 flex-none rounded object-cover"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium">{s.name}</span>
+                        {job && job.status !== 'done' ? (
+                          <span className="mt-1 block">
+                            <progress className="h-1.5 w-full" value={job.done} max={job.total} />
+                            <span className="text-xs text-slate-500">
+                              {job.status === 'error'
+                                ? `Error: ${job.error}`
+                                : `${job.done}/${job.total} tiles (L${job.level})`}
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="text-xs text-emerald-500">✓ 168 tiles</span>
+                        )}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </aside>
+
+          {/* ---------- Visor ---------- */}
+          <section className="min-h-0 p-3">
+            {escena ? (
+              <div className="flex h-full flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  {(['nav', 'info', 'link'] as const).map((tipo) => (
+                    <button
+                      key={tipo}
+                      type="button"
+                      className={`rounded-lg px-3 py-1.5 text-sm ${
+                        modoAgregar === tipo
+                          ? 'bg-amber-500 font-semibold text-slate-950'
+                          : 'bg-slate-800 hover:bg-slate-700'
+                      }`}
+                      onClick={() => setModoAgregar(modoAgregar === tipo ? null : tipo)}
+                    >
+                      + {tipo === 'nav' ? 'navegación' : tipo === 'info' ? 'info' : 'enlace'}
+                    </button>
+                  ))}
+                  <span className="ml-auto text-xs text-slate-500">
+                    Escena: {escena.name} · rev {escena.revHash}
+                  </span>
+                </div>
+                <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-slate-800">
+                  <PanoPreview
+                    previewUrl={api.archivoEscena(slug, escena, 'preview.webp')}
+                    hotspots={escena.hotspots}
+                    hotspotSeleccionado={hotspotSel}
+                    modoAgregar={modoAgregar}
+                    onAgregar={(yaw, pitch) => void agregarHotspot(yaw, pitch)}
+                    onSeleccionar={setHotspotSel}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="grid h-full place-items-center text-slate-500">
+                Sube la primera panorámica para empezar.
+              </div>
+            )}
+          </section>
+
+          {/* ---------- Inspector ---------- */}
+          <aside className="min-h-0 overflow-y-auto border-l border-slate-800 p-4 text-sm">
+            <DetalleTour tour={tour} onGuardar={guardarTour} />
+            {escena && (
+              <DetalleEscena
+                escena={escena}
+                tour={tour}
+                job={jobDeEscena}
+                onGuardar={guardarEscena}
+                onBorrar={() => void borrarEscena()}
+              />
+            )}
+            {escena && (
+              <DetalleHotspots
+                escena={escena}
+                tour={tour}
+                seleccionado={hotspotActual}
+                onSeleccionar={setHotspotSel}
+                onActualizar={(id, cambios) => void actualizarHotspot(id, cambios)}
+                onBorrar={(id) => void borrarHotspot(id)}
+              />
+            )}
+          </aside>
+        </div>
+      )}
+
+      {pestana === 'contacto' && (
+        <section className="grid flex-1 place-items-center p-8">
+          <div className="rounded-tarjeta border border-linea bg-tarjeta px-8 py-6 text-center">
+            <h2 className="mb-1 font-semibold">Contacto y marca</h2>
+            <p className="text-sm text-texto-suave">
+              Cliente, WhatsApp y aviso de mensaje — se completan en la etapa 5 del rediseño.
             </p>
           </div>
-          <ul className="min-h-0 flex-1 overflow-y-auto p-2">
-            {tour.scenes.map((s) => {
-              const job = jobs.find((j) => j.sceneId === s.id);
-              return (
-                <li key={s.id}>
-                  <button
-                    type="button"
-                    className={`mb-2 flex w-full items-center gap-3 rounded-lg border p-2 text-left ${
-                      s.id === escenaId
-                        ? 'border-amber-500 bg-slate-900'
-                        : 'border-slate-800 hover:border-slate-600'
-                    }`}
-                    onClick={() => {
-                      setEscenaId(s.id);
-                      setHotspotSel(null);
-                    }}
-                  >
-                    <img
-                      src={api.archivoEscena(slug, s, 'thumb.webp')}
-                      alt=""
-                      className="h-10 w-20 flex-none rounded object-cover"
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-medium">{s.name}</span>
-                      {job && job.status !== 'done' ? (
-                        <span className="mt-1 block">
-                          <progress className="h-1.5 w-full" value={job.done} max={job.total} />
-                          <span className="text-xs text-slate-500">
-                            {job.status === 'error'
-                              ? `Error: ${job.error}`
-                              : `${job.done}/${job.total} tiles (L${job.level})`}
-                          </span>
-                        </span>
-                      ) : (
-                        <span className="text-xs text-emerald-500">✓ 168 tiles</span>
-                      )}
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </aside>
-
-        {/* ---------- Visor ---------- */}
-        <section className="min-h-0 p-3">
-          {escena ? (
-            <div className="flex h-full flex-col gap-2">
-              <div className="flex items-center gap-2">
-                {(['nav', 'info', 'link'] as const).map((tipo) => (
-                  <button
-                    key={tipo}
-                    type="button"
-                    className={`rounded-lg px-3 py-1.5 text-sm ${
-                      modoAgregar === tipo
-                        ? 'bg-amber-500 font-semibold text-slate-950'
-                        : 'bg-slate-800 hover:bg-slate-700'
-                    }`}
-                    onClick={() => setModoAgregar(modoAgregar === tipo ? null : tipo)}
-                  >
-                    + {tipo === 'nav' ? 'navegación' : tipo === 'info' ? 'info' : 'enlace'}
-                  </button>
-                ))}
-                <span className="ml-auto text-xs text-slate-500">
-                  Escena: {escena.name} · rev {escena.revHash}
-                </span>
-              </div>
-              <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-slate-800">
-                <PanoPreview
-                  previewUrl={api.archivoEscena(slug, escena, 'preview.webp')}
-                  hotspots={escena.hotspots}
-                  hotspotSeleccionado={hotspotSel}
-                  modoAgregar={modoAgregar}
-                  onAgregar={(yaw, pitch) => void agregarHotspot(yaw, pitch)}
-                  onSeleccionar={setHotspotSel}
-                />
-              </div>
-            </div>
-          ) : (
-            <div className="grid h-full place-items-center text-slate-500">
-              Sube la primera panorámica para empezar.
-            </div>
-          )}
         </section>
+      )}
 
-        {/* ---------- Inspector ---------- */}
-        <aside className="min-h-0 overflow-y-auto border-l border-slate-800 p-4 text-sm">
-          <DetalleTour tour={tour} onGuardar={guardarTour} />
-          {escena && (
-            <DetalleEscena
-              escena={escena}
-              tour={tour}
-              job={jobDeEscena}
-              onGuardar={guardarEscena}
-              onBorrar={() => void borrarEscena()}
-            />
-          )}
-          {escena && (
-            <DetalleHotspots
-              escena={escena}
-              tour={tour}
-              seleccionado={hotspotActual}
-              onSeleccionar={setHotspotSel}
-              onActualizar={(id, cambios) => void actualizarHotspot(id, cambios)}
-              onBorrar={(id) => void borrarHotspot(id)}
-            />
-          )}
-        </aside>
-      </div>
+      {pestana === 'ajustes' && (
+        <section className="grid flex-1 place-items-center p-8">
+          <div className="rounded-tarjeta border border-linea bg-tarjeta px-8 py-6 text-center">
+            <h2 className="mb-1 font-semibold">Ajustes</h2>
+            <p className="text-sm text-texto-suave">
+              Título, estado, vencimiento y comportamiento — se completan en la etapa 5 del rediseño.
+            </p>
+          </div>
+        </section>
+      )}
     </main>
   );
 }

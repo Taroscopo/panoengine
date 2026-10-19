@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@fontsource/geist": "^5.3.0",
     "@panoengine/schema": "workspace:*",
     "@photo-sphere-viewer/core": "^5.7.0",
     "@photo-sphere-viewer/markers-plugin": "^5.7.0",

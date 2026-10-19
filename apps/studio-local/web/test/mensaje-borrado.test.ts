@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { avisoBorradoDist } from '../src/mensaje-borrado.js';
 
 describe('aviso del borrado de escena (detalle d)', () => {
-  it('nota de fallo de dist/ → aviso visible con ⚠', () => {
+  it('nota de fallo de dist/ → aviso visible (el icono lo aporta la interfaz)', () => {
     const aviso = avisoBorradoDist({
       ok: true,
       nota:
@@ -10,7 +10,7 @@ describe('aviso del borrado de escena (detalle d)', () => {
         'y se volvería a subir en la próxima publicación; elimínala a mano o repite el borrado',
     });
     expect(aviso).not.toBeNull();
-    expect(aviso).toContain('⚠');
+    expect(aviso).not.toContain('⚠');
     expect(aviso).toContain('no se pudo borrar');
   });
 

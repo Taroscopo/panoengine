@@ -1,16 +1,65 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
-html, body, #raiz { height: 100%; }
-body { @apply bg-slate-950 text-slate-100 font-sans; }
+/*
+ * Tokens del estudio (orden del propietario, modo oscuro suave).
+ * Tailwind 4: las claves de @theme generan utilidades (bg-fondo, text-texto-suave,
+ * border-linea, rounded-control, rounded-tarjeta…).
+ */
+@theme {
+  --color-fondo: #1b1d22;
+  --color-panel: #23262d;
+  --color-tarjeta: #272a32;
+  --color-linea: #343842;
+  --color-texto: #eceef2;
+  --color-texto-suave: #a3a9b5;
+  --color-texto-tenue: #8f96a5;
+  --color-azul: #5ba3ff; /* solo selección */
+  --color-verde: #5fd38d;
+  --color-ambar: #f0b64a;
+  --color-rojo: #ff8a8a;
 
-/* Marcadores de hotspot en el editor */
-.pe-marker-edit {
-  width: 34px; height: 34px; display: grid; place-items: center;
-  border-radius: 50%; cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0,0,0,.5);
+  --radius-control: 8px;
+  --radius-tarjeta: 12px;
+
+  --font-sans: 'Geist', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
-.pe-marker-edit svg { width: 18px; height: 18px; fill: #fff; }
-.pe-marker-edit--nav { background: rgba(214,48,49,.85); }
-.pe-marker-edit--info { background: rgba(30,108,217,.85); }
-.pe-marker-edit--link { background: rgba(37,211,102,.9); }
-.pe-marker-edit--sel { outline: 3px solid #e8a33d; outline-offset: 2px; }
+
+html,
+body,
+#raiz {
+  height: 100%;
+}
+
+body {
+  @apply bg-fondo text-texto font-sans antialiased;
+}
+
+/* Marcadores de puntos en el editor 360 (heredan los tokens) */
+.pe-marker-edit {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 9999px;
+  cursor: pointer;
+  border: 1px solid var(--color-linea);
+  background: color-mix(in srgb, var(--color-panel) 85%, transparent);
+}
+.pe-marker-edit svg {
+  width: 18px;
+  height: 18px;
+  stroke: var(--color-texto);
+}
+.pe-marker-edit--nav {
+  background: color-mix(in srgb, var(--color-rojo) 78%, transparent);
+}
+.pe-marker-edit--info {
+  background: color-mix(in srgb, var(--color-azul) 78%, transparent);
+}
+.pe-marker-edit--link {
+  background: color-mix(in srgb, var(--color-verde) 78%, transparent);
+}
+.pe-marker-edit--sel {
+  outline: 2px solid var(--color-ambar);
+  outline-offset: 2px;
+}

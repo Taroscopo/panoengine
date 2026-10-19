@@ -13,5 +13,5 @@ export function avisoBorradoDist(respuesta: RespuestaBorrado): string | null {
   if (nota === undefined || nota.length === 0) {
     return null;
   }
-  return nota.includes('no se pudo borrar') ? `⚠ ${nota}` : null;
+  return nota.includes('no se pudo borrar') ? nota : null;
 }
