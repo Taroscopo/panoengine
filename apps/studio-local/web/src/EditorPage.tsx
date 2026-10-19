@@ -95,7 +95,7 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
       for (const archivo of Array.from(archivos)) {
         const { scene, warnings } = await api.subirEscena(slug, archivo);
         setMensaje(
-          `Escena «${scene.name}» añadida (preview en <2 s)${warnings.length > 0 ? ` · Avisos: ${warnings.join('; ')}` : ''}`,
+          `Escena «${scene.name}» añadida${warnings.length > 0 ? ` · Avisos: ${warnings.join('; ')}` : ''}`,
         );
         await recargar();
       }
@@ -251,7 +251,7 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
               {subiendo ? 'Procesando…' : '⬆ Subir panorámica JPG'}
             </button>
             <p className="mt-2 text-xs text-slate-500">
-              Insta360 X5 (11904×5952). El preview queda listo en &lt;2 s; los tiles se cortan en segundo
+              Insta360 X5 (11904×5952). El preview queda listo en segundos; los tiles se cortan en segundo
               plano.
             </p>
           </div>
@@ -452,7 +452,7 @@ function DetalleTour({
           />
         </Campo>
       </div>
-      <div className="mb-2 flex items-center gap-4 text-xs">
+      <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
         <label className="flex items-center gap-1.5">
           <input
             type="checkbox"
