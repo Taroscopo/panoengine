@@ -62,11 +62,12 @@ Arquitectura híbrida en monorepo (`pnpm workspaces` + TypeScript estricto):
   - L2: 11264×5632 → 16×8 tiles de **704×704** = 128 tiles
   - Total: **168 tiles** por escena. `tileUrl` del visor es una FUNCIÓN
     `(col, row, level)` con índices desde 0 y `level` 0 = menor resolución.
-- `preview.webp` 1024×512 q65 **< 40 KB** (es el `baseUrl` del visor, con `baseBlur`) y
+- `preview.webp` 1024×512 q65 **< 80 KB** (es el `baseUrl` del visor, con `baseBlur`) y
   `thumb.webp` 300×150 q75 **< 20 KB** (galería). Ambos en **< 2 s** (bloqueante en el
   editor); la pirámide corre en segundo plano con progreso en vivo (SSE) al frontend.
-- El JPG master se decodifica UNA sola vez en memoria (buffer raw + `.clone()`);
-  concurrencia dinámica con `os.cpus().length`.
+- El JPG master se decodifica una vez POR FASE: la fase rápida lo decodifica
+  directamente a 1024×512 (preview + thumb del mismo buffer raw) y la pirámide
+  lo decodifica una vez a 11264×5632; concurrencia dinámica con `os.cpus().length`.
 - **three.js va alineado con el core de PSV** (`^0.185.1`): dos versiones de three en
   el bundle rompen `instanceof` y duplican peso.
 

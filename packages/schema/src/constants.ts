@@ -42,7 +42,7 @@ export const TOTAL_TILES_PER_SCENE = TILE_LEVELS.reduce((acc, l) => acc + l.cols
 
 export const PREVIEW_WIDTH = 1024 as const;
 export const PREVIEW_HEIGHT = 512 as const;
-export const PREVIEW_MAX_BYTES = 40 * 1024;
+export const PREVIEW_MAX_BYTES = 80 * 1024;
 
 export const THUMB_WIDTH = 300 as const;
 export const THUMB_HEIGHT = 150 as const;
