@@ -15,7 +15,8 @@
     "dev:studio": "pnpm --filter @panoengine/studio-server dev",
     "dev:web": "pnpm --filter @panoengine/studio-web dev",
     "dev:edge": "pnpm --filter @panoengine/edge-viewer dev",
-    "test:smoke": "pnpm --filter @panoengine/edge-viewer test:smoke"
+    "test:smoke": "pnpm --filter @panoengine/edge-viewer test:smoke",
+    "verify": "pnpm -r --if-present typecheck && pnpm -r --if-present test && pnpm lint && pnpm -r --if-present build"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.2",
