@@ -432,6 +432,11 @@ function DetalleTour({
           onChange={(e) => setForm({ ...form, whatsappDefaultText: e.target.value })}
         />
       </Campo>
+      {form.whatsappNumber.trim() !== '' && form.whatsappDefaultText.trim() === '' && (
+        <p className="mb-2 rounded-lg border border-amber-700/60 bg-amber-950/40 px-3 py-2 text-xs text-amber-300">
+          ⚠ Sin mensaje, el botón solo mostrará el nombre de la escena.
+        </p>
+      )}
       <div className="grid grid-cols-2 gap-2">
         <Campo etiqueta="Estado de alojamiento">
           <select
