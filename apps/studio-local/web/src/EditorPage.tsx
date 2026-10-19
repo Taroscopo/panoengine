@@ -209,20 +209,22 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
 
   return (
     <main className="flex h-full flex-col">
-      <header className="flex items-center gap-4 border-b border-linea bg-panel px-6 py-2.5">
-        <button
-          type="button"
-          onClick={onVolver}
-          className="inline-flex items-center gap-1.5 text-sm text-texto-suave hover:text-texto"
-        >
-          <Icono nombre="volver" />
-          Tours
-        </button>
-        <h1 className="text-base font-semibold">{tour.title}</h1>
-        <Insignia tono={tour.hostingStatus === 'suspended' ? 'rojo' : 'verde'}>
-          {tour.hostingStatus === 'suspended' ? 'Suspendido' : 'Activo'}
-        </Insignia>
-        <nav className="mx-auto">
+      <header className="flex items-stretch gap-4 border-b border-linea bg-panel px-6">
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={onVolver}
+            className="inline-flex items-center gap-1.5 text-sm text-texto-suave hover:text-texto"
+          >
+            <Icono nombre="volver" />
+            Tours
+          </button>
+          <h1 className="text-base font-semibold">{tour.title}</h1>
+          <Insignia tono={tour.hostingStatus === 'suspended' ? 'rojo' : 'verde'}>
+            {tour.hostingStatus === 'suspended' ? 'Suspendido' : 'Activo'}
+          </Insignia>
+        </div>
+        <nav className="mx-auto self-stretch">
           <Pestanas
             etiqueta="Secciones del tour"
             pestanas={[
@@ -234,7 +236,7 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
             onChange={setPestana}
           />
         </nav>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 py-2.5">
           {mensaje && (
             <span className="inline-flex items-center gap-1.5 text-sm text-texto-suave" role="status">
               <Icono nombre="check" className="h-3.5 w-3.5 text-verde" />
@@ -257,7 +259,12 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
       )}
 
       {pestana === 'editor' && (
-        <div className="grid min-h-0 flex-1 grid-cols-[260px_1fr_340px]">
+        <div
+          id="panel-editor"
+          role="tabpanel"
+          aria-labelledby="pestana-editor"
+          className="grid min-h-0 flex-1 grid-cols-[260px_1fr_340px]"
+        >
           {/* ---------- Columna escenas ---------- */}
           <aside className="flex min-h-0 flex-col border-r border-slate-800">
             <div className="border-b border-slate-800 p-3">
@@ -394,7 +401,12 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
       )}
 
       {pestana === 'contacto' && (
-        <section className="grid flex-1 place-items-center p-8">
+        <section
+          id="panel-contacto"
+          role="tabpanel"
+          aria-labelledby="pestana-contacto"
+          className="grid flex-1 place-items-center p-8"
+        >
           <div className="rounded-tarjeta border border-linea bg-tarjeta px-8 py-6 text-center">
             <h2 className="mb-1 font-semibold">Contacto y marca</h2>
             <p className="text-sm text-texto-suave">
@@ -405,7 +417,12 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
       )}
 
       {pestana === 'ajustes' && (
-        <section className="grid flex-1 place-items-center p-8">
+        <section
+          id="panel-ajustes"
+          role="tabpanel"
+          aria-labelledby="pestana-ajustes"
+          className="grid flex-1 place-items-center p-8"
+        >
           <div className="rounded-tarjeta border border-linea bg-tarjeta px-8 py-6 text-center">
             <h2 className="mb-1 font-semibold">Ajustes</h2>
             <p className="text-sm text-texto-suave">
