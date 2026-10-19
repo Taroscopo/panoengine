@@ -19,6 +19,12 @@ function hostLocal(valor: string | undefined): boolean {
   if (valor === undefined) {
     return true; // curl y clientes sin Host explícito anómalo
   }
+  // IPv6 entre corchetes: «[::1]:5199» → «[::1]» (split(':')[0] daría «[»).
+  if (valor.startsWith('[')) {
+    const cierre = valor.indexOf(']');
+    const host = cierre === -1 ? valor : valor.slice(0, cierre + 1);
+    return HOSTS_LOCALES.has(host);
+  }
   const host = valor.split(':')[0] ?? '';
   return HOSTS_LOCALES.has(host);
 }

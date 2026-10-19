@@ -21,7 +21,7 @@ import { ulid } from 'ulid';
 import { z } from 'zod';
 import type { StudioConfig } from './config.js';
 import type { ProcessingQueue } from './processing/jobs.js';
-import { computeRevHash, generateQuickDerivatives } from './processing/tiler.js';
+import { computeRevHash, generateQuickDerivatives, type QuickDerivatives } from './processing/tiler.js';
 import type { R2Publisher } from './r2.js';
 import type { WorkspaceStore } from './store.js';
 
@@ -191,10 +191,21 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
     const sceneId = ulid();
     const masterPath = store.masterPath(slug, sceneId);
     const buffer = await file.toBuffer();
-    await fs.writeFile(masterPath, buffer);
 
+    // Validación de imagen REAL antes de tocar el disco (punto 6): un archivo
+    // corrupto o disfrazado de .jpg se rechaza con 415 sin dejar master huérfano.
     const { default: sharp } = await import('sharp');
-    const meta = await sharp(masterPath).metadata();
+    let meta: import('sharp').Metadata;
+    try {
+      meta = await sharp(buffer).metadata();
+      if (meta.format !== 'jpeg') {
+        return reply.code(415).send(errorReply('El archivo no es un JPG válido'));
+      }
+    } catch {
+      return reply.code(415).send(errorReply('El archivo no es una imagen válida'));
+    }
+
+    await fs.writeFile(masterPath, buffer);
     if ((meta.width ?? 0) < 4000 || (meta.height ?? 0) < 2000) {
       await fs.unlink(masterPath).catch(() => undefined);
       return reply
@@ -205,7 +216,7 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
           ),
         );
     }
-    // Equirectangular estricto: banda [1.95, 2.05] admite el X5 (11904×5952 = 2.0007)
+    // Equirectangular estricto: banda [1.95, 2.05] admite el X5 (11904×5952 = 2.0 exacto)
     // y rechaza fotos normales (4:3, 3:2, 16:9…) con 422 (auditoría A6).
     const ratio = (meta.width ?? 1) / (meta.height ?? 1);
     if (ratio < 1.95 || ratio > 2.05) {
@@ -223,8 +234,20 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
     const revHash = await computeRevHash(masterPath);
     const sceneDistDir = store.distSceneDir(slug, sceneId, revHash);
 
-    // FASE RÁPIDA (SLA < 2 s): preview + thumb + GPS antes de responder.
-    const quick = await generateQuickDerivatives(masterPath, sceneDistDir);
+    // FASE RÁPIDA: preview + thumb + GPS antes de responder. Si el procesamiento
+    // falla, se limpia el master para no dejar huérfanos (punto 6).
+    let quick: QuickDerivatives;
+    try {
+      quick = await generateQuickDerivatives(masterPath, sceneDistDir);
+    } catch (err) {
+      await fs.rm(masterPath, { force: true }).catch(() => undefined);
+      await fs.rm(sceneDistDir, { recursive: true, force: true }).catch(() => undefined);
+      return reply
+        .code(500)
+        .send(
+          errorReply(`Fallo procesando la panorámica: ${err instanceof Error ? err.message : String(err)}`),
+        );
+    }
     if (quick.previewBytes > PREVIEW_MAX_BYTES) {
       warnings.push(`preview.webp supera el presupuesto: ${(quick.previewBytes / 1024).toFixed(1)} KB`);
     }

@@ -177,3 +177,39 @@ describe('borrar escena (A4) y relación 2:1 estricta (A6)', () => {
     expect(masterExiste).toBe(true);
   }, 180_000);
 });
+
+describe('punto 6: Host IPv6 y rechazo de no-imágenes', () => {
+  it('Host [::1]:5199 pasa; [::2] se rechaza', async () => {
+    const app = buildApp(config);
+    const ok = await app.inject({ method: 'GET', url: '/api/tours', headers: { host: '[::1]:5199' } });
+    expect(ok.statusCode).toBe(200);
+    const mal = await app.inject({ method: 'GET', url: '/api/tours', headers: { host: '[::2]:5199' } });
+    expect(mal.statusCode).toBe(403);
+    const malV6 = await app.inject({ method: 'GET', url: '/api/tours', headers: { host: '[fe80::1]' } });
+    expect(malV6.statusCode).toBe(403);
+  });
+
+  it('un archivo de texto disfrazado de .jpg → 415 y sin master huérfano', async () => {
+    const app = buildApp(config);
+    await app.inject({ method: 'POST', url: '/api/tours', payload: { slug: 'no-imagen', title: 'T' } });
+    const limite = 'pano-lim';
+    const cuerpo = Buffer.concat([
+      Buffer.from(
+        `--${limite}\r\nContent-Disposition: form-data; name="file"; filename="falso.jpg"\r\nContent-Type: image/jpeg\r\n\r\n`,
+      ),
+      Buffer.from('esto no es una imagen, es texto plano'),
+      Buffer.from(`\r\n--${limite}--\r\n`),
+    ]);
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/tours/no-imagen/scenes',
+      headers: { 'content-type': `multipart/form-data; boundary=${limite}` },
+      payload: cuerpo,
+    });
+    expect(res.statusCode).toBe(415);
+    const masters = await (await import('node:fs/promises'))
+      .readdir(`${config.dataDir}/tours/no-imagen/masters`)
+      .catch(() => []);
+    expect(masters).toEqual([]); // no quedó huérfano
+  });
+});
