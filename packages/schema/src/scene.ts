@@ -151,7 +151,7 @@ export const gsvSchema = z.object({
  * es { pan?, tilt?, roll? } en radianes — verificado en sus .d.ts).
  */
 export const sphereCorrectionSchema = z.object({
-  pan: z.number().min(-360).max(360).default(0),
+  pan: z.number().min(-180).max(180).default(0),
   tilt: z.number().min(-180).max(180).default(0),
   roll: z.number().min(-180).max(180).default(0),
 });

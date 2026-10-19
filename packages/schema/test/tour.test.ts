@@ -86,13 +86,37 @@ describe('schema del tour', () => {
     expect(parsed.sphereCorrection).toEqual({ pan: 0, tilt: 3, roll: 0 });
   });
 
-  it('rechaza sphereCorrection fuera de rango', () => {
+  it('rechaza sphereCorrection fuera de rango: pan ±180 exactos son válidos, ±181 rechazados (orden del propietario)', () => {
+    const construir = (pan: number) => {
+      const tour = newTour({ slug: 'casa', title: 'Casa', now: NOW });
+      const escena = escenaValida();
+      escena.sphereCorrection = { pan, tilt: 0, roll: 0 };
+      tour.scenes.push(escena);
+      tour.defaultSceneId = escena.id;
+      return tour;
+    };
+    expect(tourSchema.safeParse(construir(180)).success).toBe(true);
+    expect(tourSchema.safeParse(construir(-180)).success).toBe(true);
+    expect(tourSchema.safeParse(construir(181)).success).toBe(false);
+    expect(tourSchema.safeParse(construir(-181)).success).toBe(false);
+    // el rechazo histórico de valores absurdos sigue cubierto
+    expect(tourSchema.safeParse(construir(999)).success).toBe(false);
+  });
+
+  it('compatibilidad: tour sin sphereCorrection o con pan 0 valida igual que siempre', () => {
     const tour = newTour({ slug: 'casa', title: 'Casa', now: NOW });
     const escena = escenaValida();
-    escena.sphereCorrection = { pan: 999, tilt: 0, roll: 0 };
     tour.scenes.push(escena);
     tour.defaultSceneId = escena.id;
-    expect(tourSchema.safeParse(tour).success).toBe(false);
+    expect(tourSchema.safeParse(tour).success).toBe(true);
+
+    const tourPan0 = newTour({ slug: 'casa2', title: 'Casa 2', now: NOW });
+    const escenaPan0 = escenaValida();
+    escenaPan0.sphereCorrection = { pan: 0, tilt: 0, roll: 0 };
+    tourPan0.scenes.push(escenaPan0);
+    tourPan0.defaultSceneId = escenaPan0.id;
+    const parsed = tourSchema.safeParse(tourPan0);
+    expect(parsed.success).toBe(true);
   });
 
   it('sin sphereCorrection el campo queda ausente (opcional real)', () => {
