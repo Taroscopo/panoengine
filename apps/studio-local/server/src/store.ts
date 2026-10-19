@@ -11,6 +11,10 @@ import {
 export interface PublishManifest {
   files: Record<string, { sha256: string; size: number }>;
   publishedAt: string;
+  /** Bucket y endpoint con los que se publicó: si no coinciden con la config
+   * actual, el manifiesto se trata como inexistente (sin skips ni borrados). */
+  bucket: string;
+  endpoint: string;
 }
 
 /**

@@ -86,7 +86,7 @@ export class R2Publisher {
       });
   }
 
-  async publishDist(distRoot: string, previous: PublishManifest | null): Promise<PublishStats> {
+  async publishDist(distRoot: string, manifiestoPrevio: PublishManifest | null): Promise<PublishStats> {
     const stats: PublishStats = {
       uploaded: 0,
       skipped: 0,
@@ -94,6 +94,14 @@ export class R2Publisher {
       errors: [],
       totalBytes: 0,
     };
+    const endpoint = `https://${this.cfg.accountId}.r2.cloudflarestorage.com`;
+    // Manifiesto consciente del bucket: si se publicó contra otro bucket/endpoint,
+    // se trata como inexistente (nada de skips ni borrados cruzando destinos).
+    const previous =
+      manifiestoPrevio !== null &&
+      (manifiestoPrevio.bucket !== this.cfg.bucket || manifiestoPrevio.endpoint !== endpoint)
+        ? null
+        : manifiestoPrevio;
     const nextFiles: PublishManifest['files'] = {};
     const localFiles: { key: string; filePath: string; sha: string; size: number }[] = [];
 
@@ -178,7 +186,16 @@ export class R2Publisher {
     if (stats.errors.length === 0) {
       await fs.writeFile(
         path.join(distRoot, '..', 'manifest.json'),
-        `${JSON.stringify({ files: nextFiles, publishedAt: new Date().toISOString() }, null, 2)}\n`,
+        `${JSON.stringify(
+          {
+            files: nextFiles,
+            publishedAt: new Date().toISOString(),
+            bucket: this.cfg.bucket,
+            endpoint,
+          },
+          null,
+          2,
+        )}\n`,
         'utf8',
       );
     }
