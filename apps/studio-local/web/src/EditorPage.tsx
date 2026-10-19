@@ -24,7 +24,7 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
   const [escenaId, setEscenaId] = useState<string | null>(null);
   const [hotspotSel, setHotspotSel] = useState<string | null>(null);
   const [modoAgregar, setModoAgregar] = useState<'nav' | 'info' | 'link' | null>(null);
-  const [mensaje, setMensaje] = useState('');
+  const [mensaje, setMensaje] = useState<{ texto: string; tipo: 'ok' | 'error' | 'aviso' } | null>(null);
   const [subiendo, setSubiendo] = useState(false);
   const [publicando, setPublicando] = useState(false);
   const [resultadoPublicar, setResultadoPublicar] = useState<string | null>(null);
@@ -72,9 +72,9 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
   const guardarTour = async (cambios: Record<string, unknown>): Promise<void> => {
     try {
       setTour(await api.parchearTour(slug, cambios));
-      setMensaje('Tour guardado');
+      setMensaje({ texto: 'Tour guardado', tipo: 'ok' });
     } catch (err) {
-      setMensaje(err instanceof Error ? err.message : 'Error al guardar');
+      setMensaje({ texto: err instanceof Error ? err.message : 'Error al guardar', tipo: 'error' });
     }
   };
 
@@ -89,9 +89,9 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
           ? { ...prev, scenes: prev.scenes.map((s) => (s.id === actualizada.id ? actualizada : s)) }
           : prev,
       );
-      setMensaje('Escena guardada');
+      setMensaje({ texto: 'Escena guardada', tipo: 'ok' });
     } catch (err) {
-      setMensaje(err instanceof Error ? err.message : 'Error al guardar la escena');
+      setMensaje({ texto: err instanceof Error ? err.message : 'Error al guardar la escena', tipo: 'error' });
     }
   };
 
@@ -103,13 +103,17 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
     try {
       for (const archivo of Array.from(archivos)) {
         const { scene, warnings } = await api.subirEscena(slug, archivo);
-        setMensaje(
-          `Escena «${scene.name}» añadida${warnings.length > 0 ? ` · Avisos: ${warnings.join('; ')}` : ''}`,
-        );
+        setMensaje({
+          texto: `Escena «${scene.name}» añadida${warnings.length > 0 ? ` · Avisos: ${warnings.join('; ')}` : ''}`,
+          tipo: 'ok',
+        });
         await recargar();
       }
     } catch (err) {
-      setMensaje(err instanceof Error ? err.message : 'Error subiendo la panorámica');
+      setMensaje({
+        texto: err instanceof Error ? err.message : 'Error subiendo la panorámica',
+        tipo: 'error',
+      });
     } finally {
       setSubiendo(false);
       if (archivoRef.current) {
@@ -128,7 +132,7 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
     const respuesta = await api.borrarEscena(slug, escena.id);
     const aviso = avisoBorradoDist(respuesta);
     if (aviso !== null) {
-      setMensaje(aviso);
+      setMensaje({ texto: aviso, tipo: 'aviso' });
     }
     setEscenaId(null);
     setHotspotSel(null);
@@ -227,7 +231,7 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
             {tour.hostingStatus === 'suspended' ? 'Suspendido' : 'Activo'}
           </Insignia>
         </div>
-        <nav className="mx-auto self-stretch">
+        <nav className="mx-auto flex self-stretch">
           <Pestanas
             etiqueta="Secciones del tour"
             pestanas={[
@@ -241,9 +245,21 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
         </nav>
         <div className="flex items-center gap-2 py-2.5">
           {mensaje && (
-            <span className="inline-flex items-center gap-1.5 text-sm text-texto-suave" role="status">
-              <Icono nombre="check" className="h-3.5 w-3.5 text-verde" />
-              {mensaje}
+            <span
+              className={`inline-flex items-center gap-1.5 text-sm ${
+                mensaje.tipo === 'ok'
+                  ? 'text-texto-suave'
+                  : mensaje.tipo === 'error'
+                    ? 'text-rojo'
+                    : 'text-ambar'
+              }`}
+              role="status"
+            >
+              <Icono
+                nombre={mensaje.tipo === 'ok' ? 'check' : 'alerta'}
+                className={`h-3.5 w-3.5 ${mensaje.tipo === 'ok' ? 'text-verde' : ''}`}
+              />
+              {mensaje.texto}
             </span>
           )}
           <Boton variante="secundario" icono="ojo" disabled title="Disponible en una etapa posterior">
@@ -510,7 +526,7 @@ function DetalleTour({
       </Campo>
       {form.whatsappNumber.trim() !== '' && form.whatsappDefaultText.trim() === '' && (
         <p className="mb-2 rounded-lg border border-amber-700/60 bg-amber-950/40 px-3 py-2 text-xs text-amber-300">
-          ⚠ Sin mensaje, el botón solo mostrará el nombre de la escena.
+          Sin mensaje, el botón solo mostrará el nombre de la escena.
         </p>
       )}
       <div className="grid grid-cols-2 gap-2">
@@ -750,7 +766,7 @@ function DetalleEscena({
       <Boton
         variante="primario"
         className="mb-6 w-full"
-        disabled={tour.scenes.length <= 1 || job?.status === 'running'}
+        disabled={job?.status === 'running' || job?.status === 'queued'}
         onClick={() =>
           void onGuardar({
             name: form.name,
@@ -793,42 +809,59 @@ function DetalleHotspots({
   onActualizar: (id: string, cambios: Partial<Hotspot>) => void;
   onBorrar: (id: string) => void;
 }): React.JSX.Element {
+  const TIPO_PUNTO: Record<
+    Hotspot['type'],
+    { titulo: string; icono: 'flecha' | 'info' | 'enlace'; tono: string }
+  > = {
+    nav: { titulo: 'Ir a otra escena', icono: 'flecha', tono: 'border-rojo/40 text-rojo' },
+    info: { titulo: 'Información', icono: 'info', tono: 'border-azul/40 text-azul' },
+    link: { titulo: 'Enlace', icono: 'enlace', tono: 'border-verde/40 text-verde' },
+  };
   return (
-    <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
-      <h2 className="mb-3 font-semibold">Hotspots ({escena.hotspots.length})</h2>
+    <div>
+      <h2 className="mb-3 text-sm font-semibold text-texto">Puntos ({escena.hotspots.length})</h2>
       <ul className="mb-3 space-y-1">
-        {escena.hotspots.map((h) => (
-          <li key={h.id}>
-            <button
-              type="button"
-              className={`flex w-full items-center justify-between rounded-lg border px-3 py-1.5 text-left ${
-                seleccionado?.id === h.id ? 'border-amber-500 bg-slate-900' : 'border-slate-800'
-              }`}
-              onClick={() => onSeleccionar(h.id)}
-            >
-              <span className="truncate">
-                <span
-                  className={`mr-2 rounded px-1.5 py-0.5 text-[10px] uppercase ${h.type === 'nav' ? 'bg-red-900/70 text-red-300' : h.type === 'info' ? 'bg-blue-900/70 text-blue-300' : 'bg-emerald-900/70 text-emerald-300'}`}
-                >
-                  {h.type}
+        {escena.hotspots.map((h) => {
+          const tipo = TIPO_PUNTO[h.type];
+          return (
+            <li key={h.id}>
+              <button
+                type="button"
+                className={`flex w-full items-center justify-between rounded-control border px-2.5 py-1.5 text-left transition-colors ${
+                  seleccionado?.id === h.id
+                    ? 'border-azul bg-azul/10'
+                    : 'border-linea hover:border-texto-tenue'
+                }`}
+                onClick={() => onSeleccionar(h.id)}
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  <span
+                    className={`inline-flex flex-none items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${tipo.tono}`}
+                  >
+                    <Icono nombre={tipo.icono} className="h-2.5 w-2.5" />
+                    {tipo.titulo}
+                  </span>
+                  <span className="truncate text-sm">{h.title ?? h.id}</span>
                 </span>
-                {h.title ?? h.id}
-              </span>
-              <span className="text-xs text-slate-500">
-                {h.yaw.toFixed(0)}°/{h.pitch.toFixed(0)}°
-              </span>
-            </button>
-          </li>
-        ))}
+                <span className="flex-none pl-2 text-xs text-texto-tenue">
+                  {h.yaw.toFixed(0)}° / {h.pitch.toFixed(0)}°
+                </span>
+              </button>
+            </li>
+          );
+        })}
         {escena.hotspots.length === 0 && (
-          <li className="text-xs text-slate-500">Sin hotspots. Usa los botones «+» sobre el visor.</li>
+          <li className="text-xs text-texto-tenue">
+            Sin puntos. Usa los botones de «Añadir punto» sobre el visor.
+          </li>
         )}
       </ul>
 
       {seleccionado && (
-        <div className="rounded-lg border border-amber-900/60 bg-amber-950/20 p-3">
-          <h3 className="mb-2 text-xs uppercase tracking-wide text-amber-400">
-            Editando hotspot {seleccionado.type}
+        <div className="rounded-tarjeta border border-linea bg-tarjeta p-3">
+          <h3 className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-texto-suave">
+            <Icono nombre={TIPO_PUNTO[seleccionado.type].icono} className="h-3.5 w-3.5" />
+            Editando punto · {TIPO_PUNTO[seleccionado.type].titulo}
           </h3>
           <Campo etiqueta="Título">
             <input
@@ -838,7 +871,7 @@ function DetalleHotspots({
             />
           </Campo>
           <div className="grid grid-cols-2 gap-2">
-            <Campo etiqueta="Giro (°)">
+            <Campo etiqueta="Giro">
               <input
                 type="number"
                 step="0.1"
@@ -847,7 +880,7 @@ function DetalleHotspots({
                 onBlur={(e) => onActualizar(seleccionado.id, { yaw: Number(e.target.value) })}
               />
             </Campo>
-            <Campo etiqueta="Altura de la mirada (°)">
+            <Campo etiqueta="Altura de la mirada">
               <input
                 type="number"
                 step="0.1"
@@ -859,7 +892,7 @@ function DetalleHotspots({
           </div>
           {seleccionado.type === 'nav' && (
             <>
-              <Campo etiqueta="Escena destino">
+              <Campo etiqueta="Destino">
                 <select
                   className={inputCls}
                   value={seleccionado.targetSceneId}
@@ -875,7 +908,7 @@ function DetalleHotspots({
                 </select>
               </Campo>
               <div className="grid grid-cols-3 gap-2">
-                <Campo etiqueta="Giro al llegar (°)">
+                <Campo etiqueta="Giro al llegar">
                   <input
                     type="number"
                     className={inputCls}
@@ -883,7 +916,7 @@ function DetalleHotspots({
                     onBlur={(e) => onActualizar(seleccionado.id, { targetYaw: Number(e.target.value) })}
                   />
                 </Campo>
-                <Campo etiqueta="Altura al llegar (°)">
+                <Campo etiqueta="Altura al llegar">
                   <input
                     type="number"
                     className={inputCls}
@@ -891,7 +924,7 @@ function DetalleHotspots({
                     onBlur={(e) => onActualizar(seleccionado.id, { targetPitch: Number(e.target.value) })}
                   />
                 </Campo>
-                <Campo etiqueta="Zoom al llegar (°)">
+                <Campo etiqueta="Zoom al llegar">
                   <input
                     type="number"
                     className={inputCls}
@@ -910,9 +943,9 @@ function DetalleHotspots({
                     })
                   }
                 >
-                  <option value="blend">blend (fundido)</option>
-                  <option value="fade">fade</option>
-                  <option value="none">ninguna</option>
+                  <option value="blend">Fundido</option>
+                  <option value="fade">Desvanecer</option>
+                  <option value="none">Ninguna</option>
                 </select>
               </Campo>
             </>
@@ -943,21 +976,22 @@ function DetalleHotspots({
                     onActualizar(seleccionado.id, { action: e.target.value as 'new-tab' | 'same-tab' })
                   }
                 >
-                  <option value="new-tab">pestaña nueva</option>
-                  <option value="same-tab">misma pestaña</option>
+                  <option value="new-tab">Pestaña nueva</option>
+                  <option value="same-tab">Misma pestaña</option>
                 </select>
               </Campo>
             </>
           )}
-          <button
-            type="button"
-            className="mt-1 w-full rounded-lg border border-red-800 py-1.5 text-red-300 hover:bg-red-950"
+          <Boton
+            variante="peligro"
+            icono="papelera"
+            className="mt-1 w-full"
             onClick={() => onBorrar(seleccionado.id)}
           >
-            Eliminar hotspot
-          </button>
+            Eliminar punto
+          </Boton>
         </div>
       )}
-    </section>
+    </div>
   );
 }
