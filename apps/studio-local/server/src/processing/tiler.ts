@@ -22,14 +22,39 @@ import pLimit from 'p-limit';
 import sharp from 'sharp';
 
 /**
- * Hash corto (10 hex) que identifica la revisión de la escena:
- * sha256(PIPELINE_VERSION ‖ bytes del master). La versión del pipeline entra en
- * el hash para que cualquier cambio del cortador/codec genere carpetas nuevas
- * (caché inmutable intacta). NO incluye campos de tour.json (sphereCorrection,
- * hotspots…): son de render, no de píxeles.
+ * Descriptor de los parámetros del pipeline que afectan a los BYTES de los
+ * derivados: versión, calidad/effort WebP, rejilla de niveles y tamaños.
+ * Cualquier cambio aquí ⇒ revHash distinto ⇒ carpeta de tiles nueva
+ * (la caché inmutable nunca se intoxica). Los campos de tour.json
+ * (sphereCorrection, hotspots…) NO entran: son de render, no de píxeles.
  */
-export function hashConPipeline(bytes: Buffer, version: number = PIPELINE_VERSION): string {
-  return createHash('sha256').update(`panoengine-v${version}:`).update(bytes).digest('hex').slice(0, 10);
+export function descriptorPipeline(
+  version: number = PIPELINE_VERSION,
+  calidad: number = TILE_WEBP_QUALITY,
+  effort: number = TILE_WEBP_EFFORT,
+): string {
+  const rejilla = TILE_LEVELS.map((l) => `${l.width}x${l.cols}x${l.rows}`).join(',');
+  return (
+    `panoengine-v${version}|q${calidad}|e${effort}|m${MASTER_WIDTH}x${MASTER_HEIGHT}` +
+    `|l[${rejilla}]|p${PREVIEW_WIDTH}x${PREVIEW_HEIGHT}|t${THUMB_WIDTH}x${THUMB_HEIGHT}`
+  );
+}
+
+/**
+ * Hash corto (10 hex) que identifica la revisión de la escena:
+ * sha256(descriptor del pipeline ‖ bytes del master).
+ */
+export function hashConPipeline(
+  bytes: Buffer,
+  version: number = PIPELINE_VERSION,
+  calidad: number = TILE_WEBP_QUALITY,
+  effort: number = TILE_WEBP_EFFORT,
+): string {
+  return createHash('sha256')
+    .update(`${descriptorPipeline(version, calidad, effort)}:`)
+    .update(bytes)
+    .digest('hex')
+    .slice(0, 10);
 }
 
 export async function computeRevHash(masterPath: string): Promise<string> {

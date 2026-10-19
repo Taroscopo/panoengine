@@ -6,6 +6,7 @@ import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
 import {
   computeRevHash,
+  descriptorPipeline,
   generateQuickDerivatives,
   generateTilePyramid,
   hashConPipeline,
@@ -38,14 +39,25 @@ describe('cortador sharp (imagen sintética)', () => {
     expect(h2).toBe(h1);
   });
 
-  it('revHash mezcla PIPELINE_VERSION: bump de versión ⇒ hash distinto', () => {
+  it('revHash mezcla versión, calidad, effort, rejilla y tamaños: cambiar cualquiera ⇒ hash distinto', () => {
     const bytes = Buffer.from('master-de-prueba');
-    const v1 = hashConPipeline(bytes, 1);
-    const v2 = hashConPipeline(bytes, 2);
-    expect(v1).toMatch(/^[0-9a-f]{10}$/);
-    expect(v1).not.toBe(v2);
-    // mismo master + misma versión ⇒ determinista
-    expect(hashConPipeline(bytes, 1)).toBe(v1);
+    const base = hashConPipeline(bytes, 1);
+    expect(base).toMatch(/^[0-9a-f]{10}$/);
+    expect(hashConPipeline(bytes, 2)).not.toBe(base); // versión
+    expect(hashConPipeline(bytes, 1, 75)).not.toBe(base); // calidad
+    expect(hashConPipeline(bytes, 1, 80, 5)).not.toBe(base); // effort
+    // mismo master + mismos parámetros ⇒ determinista
+    expect(hashConPipeline(bytes, 1)).toBe(base);
+  });
+
+  it('el descriptor del pipeline declara rejilla y tamaños', () => {
+    const d = descriptorPipeline();
+    expect(d).toContain('q80');
+    expect(d).toContain('e4');
+    expect(d).toContain('m11264x5632');
+    expect(d).toContain('l[2048x4x2,5120x8x4,11264x16x8]');
+    expect(d).toContain('p1024x512');
+    expect(d).toContain('t300x150');
   });
 
   it('quick derivatives cumplen presupuestos (<40KB preview, <20KB thumb)', async () => {
