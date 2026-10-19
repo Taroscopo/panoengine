@@ -3,6 +3,7 @@ import { createReadStream } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { DeleteObjectsCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import pLimit from 'p-limit';
 import type { R2Config } from './config.js';
 import type { PublishManifest } from './store.js';
 
@@ -146,13 +147,11 @@ export class R2Publisher {
       }
     };
 
-    // Fase 1: todo excepto tour.json.
-    for (const archivo of localFiles) {
-      if (esTourJson(archivo.key)) {
-        continue;
-      }
-      await subir(archivo);
-    }
+    // Fase 1: todo excepto tour.json, EN PARALELO con límite (punto 4).
+    const limite = pLimit(8);
+    await Promise.all(
+      localFiles.filter((archivo) => !esTourJson(archivo.key)).map((archivo) => limite(() => subir(archivo))),
+    );
 
     // Fase 2: tour.json al final, solo si no hubo errores.
     const tourJson = localFiles.find((archivo) => esTourJson(archivo.key));
@@ -162,19 +161,27 @@ export class R2Publisher {
       stats.errors.push('tour.json: no se subió porque hubo errores en los tiles');
     }
 
-    // Fase 3: borrados (solo en publicación limpia).
+    // Fase 3: borrados (solo en publicación limpia). DeleteObjects puede
+    // devolver Errors[] parciales (200 con errores por objeto): se tratan como fallos.
     if (stats.errors.length === 0 && previous) {
       const toDelete = Object.keys(previous.files).filter((key) => !(key in nextFiles));
       for (let i = 0; i < toDelete.length; i += 1000) {
         const batch = toDelete.slice(i, i + 1000);
         try {
-          await this.client.send(
+          const respuesta = (await this.client.send(
             new DeleteObjectsCommand({
               Bucket: this.cfg.bucket,
               Delete: { Objects: batch.map((Key) => ({ Key })) },
             }),
-          );
-          stats.deleted += batch.length;
+          )) as { Errors?: { Key?: string; Message?: string }[] };
+          const erroresBorrado = respuesta?.Errors ?? [];
+          if (erroresBorrado.length > 0) {
+            for (const err of erroresBorrado) {
+              stats.errors.push(`borrado ${err.Key ?? '?'}: ${err.Message ?? 'sin mensaje'}`);
+            }
+          } else {
+            stats.deleted += batch.length;
+          }
         } catch (err) {
           stats.errors.push(`borrado lote: ${err instanceof Error ? err.message : String(err)}`);
         }

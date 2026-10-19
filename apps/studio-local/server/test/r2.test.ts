@@ -201,3 +201,50 @@ function manifestBucket(m: PublishManifest | null): string {
 function manifestEndpoint(m: PublishManifest | null): string {
   return m?.endpoint ?? '(nulo)';
 }
+
+describe('punto 4: paralelismo con límite y Errors[] del borrado', () => {
+  it('las subidas corren en paralelo con concurrencia ≤ 8', async () => {
+    const raiz = await crearDist(
+      Object.fromEntries(Array.from({ length: 24 }, (_, i) => [`tours/x/scenes/a/t${i}.webp`, `t${i}`])),
+    );
+    let activos = 0;
+    let maxActivos = 0;
+    const cliente: S3Envio = {
+      send: async (comando: unknown) => {
+        if (comando instanceof PutObjectCommand) {
+          activos++;
+          maxActivos = Math.max(maxActivos, activos);
+          await new Promise((r) => setTimeout(r, 30));
+          activos--;
+          return {};
+        }
+        return {};
+      },
+    };
+    const stats = await new R2Publisher(CFG, cliente).publishDist(raiz, null);
+    expect(stats.uploaded).toBe(24);
+    expect(maxActivos).toBeGreaterThan(1); // hubo paralelismo real
+    expect(maxActivos).toBeLessThanOrEqual(8); // y respetó el límite
+  });
+
+  it('DeleteObjects con Errors[] parciales se registra como error (200 no es éxito)', async () => {
+    const raiz = await crearDist({ 'tours/x/tour.json': '{}' });
+    const previo: PublishManifest = {
+      files: { 'tours/x/viejo.webp': { sha256: 'aaa', size: 1 } },
+      publishedAt: '2026-01-01T00:00:00.000Z',
+      bucket: 'bucket-test',
+      endpoint: 'https://cuenta.r2.cloudflarestorage.com',
+    };
+    const cliente: S3Envio = {
+      send: async (comando: unknown) => {
+        if (comando instanceof DeleteObjectsCommand) {
+          return { Errors: [{ Key: 'tours/x/viejo.webp', Message: 'AccessDenied' }] };
+        }
+        return {};
+      },
+    };
+    const stats = await new R2Publisher(CFG, cliente).publishDist(raiz, previo);
+    expect(stats.deleted).toBe(0);
+    expect(stats.errors.some((e) => e.includes('viejo.webp') && e.includes('AccessDenied'))).toBe(true);
+  });
+});
