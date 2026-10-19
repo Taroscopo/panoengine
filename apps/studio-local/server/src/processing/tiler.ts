@@ -69,20 +69,21 @@ export interface QuickDerivatives {
   lng: number | undefined;
 }
 
-async function encodeWithinBudget(
-  input: sharp.Sharp,
-  width: number,
-  height: number,
+/** Codifica un buffer raw a WebP bajando calidad hasta entrar en presupuesto. */
+async function encodeRawWithinBudget(
+  raw: Buffer,
+  rawInfo: { width: number; height: number; channels: 3 | 4 },
   maxBytes: number,
   qualities: readonly number[],
+  resize?: { width: number; height: number },
 ): Promise<Buffer> {
   let last: Buffer | undefined;
   for (const quality of qualities) {
-    last = await input
-      .clone()
-      .resize(width, height, { fit: 'fill', kernel: 'lanczos3' })
-      .webp({ quality, effort: 5 })
-      .toBuffer();
+    let pipeline = sharp(raw, { raw: rawInfo });
+    if (resize) {
+      pipeline = pipeline.resize(resize.width, resize.height, { fit: 'fill', kernel: 'lanczos3' });
+    }
+    last = await pipeline.webp({ quality, effort: 5 }).toBuffer();
     if (last.length <= maxBytes) {
       return last;
     }
@@ -96,8 +97,13 @@ async function encodeWithinBudget(
 }
 
 /**
- * FASE RÁPIDA (SLA < 2 s): preview.webp 1024×512 (<40 KB) y thumb.webp 300×150 (<20 KB)
- * + extracción de GPS del EXIF ANTES de que los metadatos se descarten en los derivados.
+ * FASE RÁPIDA: preview.webp 1024×512 y thumb.webp 300×150
+ * + extracción de GPS del EXIF ANTES de que los metadatos se descarten.
+ *
+ * DECODIFICACIÓN ÚNICA: el master JPG se decodifica UNA sola vez, directamente
+ * al tamaño del preview (1024×512, Lanczos3); el thumb se deriva de ese mismo
+ * buffer raw. Antes eran dos decodificaciones completas del master (~1,5 s
+ * cada una con un JPG real de 99 MP).
  */
 export async function generateQuickDerivatives(
   masterPath: string,
@@ -105,11 +111,25 @@ export async function generateQuickDerivatives(
 ): Promise<QuickDerivatives> {
   const startedAt = Date.now();
   await fs.mkdir(sceneDir, { recursive: true });
-  const input = sharp(masterPath, { sequentialRead: true, limitInputPixels: false }).rotate();
+
+  // Única decodificación del master → raw 1024×512.
+  const { data, info } = await sharp(masterPath, {
+    sequentialRead: true,
+    limitInputPixels: false,
+  })
+    .rotate()
+    .resize(PREVIEW_WIDTH, PREVIEW_HEIGHT, { fit: 'fill', kernel: 'lanczos3' })
+    .removeAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const rawInfo = { width: info.width, height: info.height, channels: info.channels as 3 | 4 };
 
   const [preview, thumb, gps] = await Promise.all([
-    encodeWithinBudget(input, PREVIEW_WIDTH, PREVIEW_HEIGHT, PREVIEW_MAX_BYTES, [65, 55, 45, 40]),
-    encodeWithinBudget(input, THUMB_WIDTH, THUMB_HEIGHT, THUMB_MAX_BYTES, [75, 60, 50, 45]),
+    encodeRawWithinBudget(data, rawInfo, PREVIEW_MAX_BYTES, [65, 55, 45, 40]),
+    encodeRawWithinBudget(data, rawInfo, THUMB_MAX_BYTES, [75, 60, 50, 45], {
+      width: THUMB_WIDTH,
+      height: THUMB_HEIGHT,
+    }),
     exifr.gps(masterPath).catch(() => undefined),
   ]);
 
