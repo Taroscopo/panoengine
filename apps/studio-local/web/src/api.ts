@@ -63,8 +63,10 @@ export const api = {
     });
     return (await json<{ scene: Scene }>(res)).scene;
   },
-  async borrarEscena(slug: string, sceneId: string): Promise<void> {
-    await json<unknown>(await fetch(`/api/tours/${slug}/scenes/${sceneId}`, { method: 'DELETE' }));
+  async borrarEscena(slug: string, sceneId: string): Promise<{ ok: boolean; nota: string }> {
+    return json<{ ok: boolean; nota: string }>(
+      await fetch(`/api/tours/${slug}/scenes/${sceneId}`, { method: 'DELETE' }),
+    );
   },
   async publicar(slug: string): Promise<{
     ok: boolean;

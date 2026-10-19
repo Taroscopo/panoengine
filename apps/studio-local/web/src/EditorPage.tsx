@@ -2,6 +2,7 @@ import type { Hotspot, Scene, Tour } from '@panoengine/schema';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ulid } from 'ulid';
 import { api, type SceneJob } from './api.js';
+import { avisoBorradoDist } from './mensaje-borrado.js';
 import { PanoPreview } from './PanoPreview.js';
 
 interface Props {
@@ -116,7 +117,11 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
     if (!window.confirm(`¿Eliminar la escena «${escena.name}» del tour?`)) {
       return;
     }
-    await api.borrarEscena(slug, escena.id);
+    const respuesta = await api.borrarEscena(slug, escena.id);
+    const aviso = avisoBorradoDist(respuesta);
+    if (aviso !== null) {
+      setMensaje(aviso);
+    }
     setEscenaId(null);
     setHotspotSel(null);
     await recargar();
