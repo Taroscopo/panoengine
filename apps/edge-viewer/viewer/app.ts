@@ -18,6 +18,7 @@ import type { Hotspot, Scene, Tour } from '@panoengine/schema';
 import { fovToZoomLvl, zoomLimitToPsv } from '@panoengine/schema';
 import { crearContexto, expandirTileUrl, ICONOS, rad } from './estado.js';
 import { type CapaPatches, crearCapaPatches } from './patches.js';
+import { textoCompuesto } from './texto.js';
 import { instalarUI, type UI } from './ui.js';
 
 /** Datos que viajan dentro de cada link (vista destino del hotspot nav). */
@@ -140,7 +141,7 @@ export function iniciarTour(tour: Tour, slug: string): void {
   const nodos: VirtualTourNode[] = tour.scenes.map((escena) => ({
     id: escena.id,
     name: escena.name,
-    caption: `${tour.title} — ${escena.name}`,
+    caption: textoCompuesto(tour.title, escena.name),
     thumbnail: ctx.url(rutaThumb(escena)),
     panorama: panoramaDe(escena),
     links: escena.hotspots

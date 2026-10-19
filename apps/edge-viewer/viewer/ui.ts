@@ -1,5 +1,6 @@
 import type { Hotspot, Scene } from '@panoengine/schema';
 import { ICONO_WHATSAPP, type TourContext } from './estado.js';
+import { textoCompuesto } from './texto.js';
 
 export interface UI {
   actualizarEscena(escena: Scene, nodeId: string | undefined): void;
@@ -27,9 +28,7 @@ export function instalarUI(ctx: TourContext): UI {
       return;
     }
     whatsapp.style.display = '';
-    const texto = [ctx.tour.whatsappDefaultText, escena.name]
-      .filter((parte): parte is string => Boolean(parte))
-      .join(' — ');
+    const texto = textoCompuesto(ctx.tour.whatsappDefaultText, escena.name);
     const telefono = numero.replace(/[^0-9]/g, '');
     whatsapp.href = `https://wa.me/${telefono}?text=${encodeURIComponent(texto)}`;
     whatsapp.innerHTML = `${ICONO_WHATSAPP}<span>${escapar(texto)}</span>`;
