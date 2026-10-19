@@ -331,18 +331,22 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
     if (!escena) {
       return reply.code(404).send(errorReply('No existe la escena'));
     }
-    // Se elimina su carpeta de dist/ (tiles/preview/thumb de esa revisión) para
-    // que la próxima publicación no los vuelva a subir ni a publicar huérfanos.
-    // El master se conserva (fuente de verdad, RULES.md §3).
-    await fs.rm(store.distSceneDir(slug, escena.id, escena.revHash), {
-      recursive: true,
-      force: true,
-    });
+    // Primero el estado (tour.json), después el disco (punto 5): si el rm
+    // fallara, el tour ya no referencia la escena y la carpeta huérfana es
+    // inofensiva (nunca se re-publica: walkFiles la vería, pero la próxima
+    // publicación con manifiesto la borra del bucket al desaparecer del draft).
     draft.scenes.splice(idx, 1);
     if (draft.defaultSceneId === sceneId) {
       draft.defaultSceneId = draft.scenes[0]?.id;
     }
     await store.writeTour(draft);
+    // Se elimina su carpeta de dist/ (tiles/preview/thumb de esa revisión) para
+    // que la próxima publicación no los vuelva a subir. El master se conserva
+    // (fuente de verdad, RULES.md §3).
+    await fs.rm(store.distSceneDir(slug, escena.id, escena.revHash), {
+      recursive: true,
+      force: true,
+    });
     return {
       ok: true,
       nota: 'Carpeta de la escena en dist/ eliminada; el master se conserva en masters/',
