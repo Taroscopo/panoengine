@@ -354,10 +354,11 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
     if (!escena) {
       return reply.code(404).send(errorReply('No existe la escena'));
     }
-    // Primero el estado (tour.json), después el disco (punto 5): si el rm
-    // fallara, el tour ya no referencia la escena y la carpeta huérfana es
-    // inofensiva (nunca se re-publica: walkFiles la vería, pero la próxima
-    // publicación con manifiesto la borra del bucket al desaparecer del draft).
+    // Primero el estado (tour.json), después el disco (punto 5): si el rm falla,
+    // el tour ya no referencia la escena, pero la carpeta huérfana SÍ se
+    // re-subiría en la siguiente publicación (walkFiles(dist) la incluye aunque
+    // el draft ya no la cite). Por eso se captura el error: log + aviso en la
+    // respuesta, sin 500 con el tour ya guardado.
     draft.scenes.splice(idx, 1);
     if (draft.defaultSceneId === sceneId) {
       draft.defaultSceneId = draft.scenes[0]?.id;
@@ -366,13 +367,26 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
     // Se elimina su carpeta de dist/ (tiles/preview/thumb de esa revisión) para
     // que la próxima publicación no los vuelva a subir. El master se conserva
     // (fuente de verdad, RULES.md §3).
-    await fs.rm(store.distSceneDir(slug, escena.id, escena.revHash), {
-      recursive: true,
-      force: true,
-    });
+    const avisos: string[] = [];
+    try {
+      await fs.rm(store.distSceneDir(slug, escena.id, escena.revHash), {
+        recursive: true,
+        force: true,
+      });
+    } catch (err) {
+      const detalle = err instanceof Error ? err.message : String(err);
+      console.warn(`[borrar escena] no se pudo eliminar la carpeta dist de ${sceneId}: ${detalle}`);
+      avisos.push(
+        'La escena se eliminó del tour, pero su carpeta en dist/ no se pudo borrar ' +
+          'y se volvería a subir en la próxima publicación; elimínala a mano o repite el borrado',
+      );
+    }
     return {
       ok: true,
-      nota: 'Carpeta de la escena en dist/ eliminada; el master se conserva en masters/',
+      nota:
+        avisos.length > 0
+          ? `${avisos.join('; ')}; el master se conserva en masters/`
+          : 'Carpeta de la escena en dist/ eliminada; el master se conserva en masters/',
     };
   });
 
