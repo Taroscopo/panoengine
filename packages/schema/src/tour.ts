@@ -77,5 +77,7 @@ export const tourSummarySchema = z.object({
   hostingExpiresAt: isoDateTimeSchema.optional(),
   sceneCount: z.number().int().min(0),
   updatedAt: isoDateTimeSchema,
+  /** Ruta servida por el estudio (/files/…) del thumb de la primera escena. */
+  miniatura: z.string().optional(),
 });
 export type TourSummary = z.infer<typeof tourSummarySchema>;

@@ -1,11 +1,24 @@
 import type { TourSummary } from '@panoengine/schema';
-import { useEffect, useState } from 'react';
-import { api, type TourResponse } from './api.js';
+import { useEffect, useMemo, useState } from 'react';
+import { api } from './api.js';
+import { Boton } from './componentes/Boton.js';
+import { Campo, inputCls } from './componentes/Campo.js';
+import { Icono } from './componentes/Icono.js';
+import { Insignia } from './componentes/Insignia.js';
+import { estadoTour, FILTROS, type FiltroLista, pasaFiltro, textoVence } from './estado-tour.js';
 
 interface Props {
   onAbrir: (slug: string) => void;
   onCrear: (datos: { slug: string; title: string; clientName?: string }) => Promise<unknown>;
 }
+
+type Estado = ReturnType<typeof estadoTour>;
+const ETIQUETA_ESTADO: Record<Estado, { texto: string; tono: 'verde' | 'ambar' | 'rojo' }> = {
+  activo: { texto: 'Activo', tono: 'verde' },
+  'por-vencer': { texto: 'Por vencer', tono: 'ambar' },
+  vencido: { texto: 'Vencido', tono: 'rojo' },
+  suspendido: { texto: 'Suspendido', tono: 'rojo' },
+};
 
 export function ToursPage({ onAbrir, onCrear }: Props): React.JSX.Element {
   const [tours, setTours] = useState<TourSummary[] | null>(null);
@@ -13,6 +26,7 @@ export function ToursPage({ onAbrir, onCrear }: Props): React.JSX.Element {
   const [creando, setCreando] = useState(false);
   const [form, setForm] = useState({ slug: '', title: '', clientName: '' });
   const [creandoTour, setCreandoTour] = useState(false);
+  const [filtro, setFiltro] = useState<FiltroLista>('todos');
 
   useEffect(() => {
     api
@@ -20,6 +34,19 @@ export function ToursPage({ onAbrir, onCrear }: Props): React.JSX.Element {
       .then(setTours)
       .catch((err: Error) => setError(err.message));
   }, []);
+
+  const conEstado = useMemo(() => (tours ?? []).map((t) => ({ tour: t, estado: estadoTour(t) })), [tours]);
+  const contadores = useMemo(() => {
+    const base: Record<FiltroLista, number> = { todos: 0, activos: 0, 'por-vencer': 0, suspendidos: 0 };
+    for (const { estado } of conEstado) {
+      base.todos++;
+      if (pasaFiltro(estado, 'activos')) base.activos++;
+      if (pasaFiltro(estado, 'por-vencer')) base['por-vencer']++;
+      if (pasaFiltro(estado, 'suspendidos')) base.suspendidos++;
+    }
+    return base;
+  }, [conEstado]);
+  const visibles = conEstado.filter(({ estado }) => pasaFiltro(estado, filtro));
 
   const crear = async (): Promise<void> => {
     setError('');
@@ -45,103 +72,139 @@ export function ToursPage({ onAbrir, onCrear }: Props): React.JSX.Element {
   };
 
   return (
-    <main className="mx-auto max-w-4xl p-8">
+    <main className="mx-auto max-w-5xl px-8 py-10">
       <header className="mb-8 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">🏛 PanoEngine Studio</h1>
-        <button
-          type="button"
-          className="rounded-lg bg-amber-500 px-4 py-2 font-semibold text-slate-950 hover:bg-amber-400"
-          onClick={() => setCreando((v) => !v)}
-        >
-          + Nuevo tour
-        </button>
+        <h1 className="text-xl font-semibold">Tours</h1>
+        <Boton variante="primario" icono="mas" onClick={() => setCreando((v) => !v)}>
+          Nuevo tour
+        </Boton>
       </header>
 
       {creando && (
-        <section className="mb-8 rounded-xl border border-slate-800 bg-slate-900 p-5">
+        <section className="mb-8 rounded-tarjeta border border-linea bg-tarjeta p-5">
           <div className="grid gap-4 sm:grid-cols-3">
-            <label className="text-sm">
-              Slug (URL pública)
+            <Campo id="nuevo-slug" etiqueta="Slug (URL pública)">
               <input
-                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2"
+                id="nuevo-slug"
+                className={inputCls}
                 placeholder="los-choquitos"
                 value={form.slug}
                 onChange={(e) => setForm({ ...form, slug: e.target.value.trim().toLowerCase() })}
               />
-            </label>
-            <label className="text-sm">
-              Título
+            </Campo>
+            <Campo id="nuevo-titulo" etiqueta="Título">
               <input
-                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2"
+                id="nuevo-titulo"
+                className={inputCls}
                 placeholder="Los Choquitos"
                 value={form.title}
                 onChange={(e) => setForm({ ...form, title: e.target.value })}
               />
-            </label>
-            <label className="text-sm">
-              Cliente
+            </Campo>
+            <Campo id="nuevo-cliente" etiqueta="Cliente">
               <input
-                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2"
+                id="nuevo-cliente"
+                className={inputCls}
                 placeholder="Nombre del cliente"
                 value={form.clientName}
                 onChange={(e) => setForm({ ...form, clientName: e.target.value })}
               />
-            </label>
+            </Campo>
           </div>
-          <button
-            type="button"
-            disabled={creandoTour}
-            className="mt-4 rounded-lg bg-emerald-600 px-4 py-2 font-semibold disabled:opacity-50"
-            onClick={() => void crear()}
-          >
+          <Boton variante="primario" disabled={creandoTour} onClick={() => void crear()}>
             {creandoTour ? 'Creando…' : 'Crear tour'}
-          </button>
+          </Boton>
         </section>
       )}
 
       {error && (
-        <p className="mb-6 rounded-lg border border-red-900 bg-red-950/60 px-4 py-3 text-red-200">{error}</p>
+        <p className="mb-6 flex items-center gap-2 rounded-control border border-rojo/40 bg-rojo/10 px-4 py-3 text-sm text-rojo">
+          <Icono nombre="alerta" />
+          {error}
+        </p>
       )}
 
+      <fieldset aria-label="Filtrar tours" className="mb-6 flex gap-2">
+        {FILTROS.map((f) => {
+          const activo = f.id === filtro;
+          const n = contadores[f.id];
+          return (
+            <button
+              key={f.id}
+              type="button"
+              aria-pressed={activo}
+              onClick={() => setFiltro(f.id)}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition-colors ${
+                activo
+                  ? 'border-azul/60 bg-azul/10 text-azul'
+                  : 'border-linea text-texto-suave hover:text-texto'
+              }`}
+            >
+              {f.titulo}
+              <span
+                className={`rounded-full px-1.5 text-xs ${activo ? 'bg-azul/20' : 'bg-fondo text-texto-tenue'}`}
+              >
+                {n}
+              </span>
+            </button>
+          );
+        })}
+      </fieldset>
+
       {tours === null ? (
-        <p className="text-slate-400">Cargando tours…</p>
-      ) : tours.length === 0 ? (
-        <p className="text-slate-400">Todavía no hay tours. Crea el primero.</p>
+        <p className="text-texto-suave">Cargando tours…</p>
+      ) : visibles.length === 0 ? (
+        <p className="text-texto-suave">
+          {tours.length === 0 ? 'Todavía no hay tours. Crea el primero.' : 'Ningún tour en este filtro.'}
+        </p>
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2">
-          {tours.map((tour: TourSummary) => (
-            <li key={tour.slug}>
-              <button
-                type="button"
-                className="w-full rounded-xl border border-slate-800 bg-slate-900 p-5 text-left hover:border-amber-500/60"
-                onClick={() => onAbrir(tour.slug)}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold">{tour.title}</span>
-                  <span
-                    className={
-                      tour.hostingStatus === 'active'
-                        ? 'rounded-full bg-emerald-900/70 px-2 py-0.5 text-xs text-emerald-300'
-                        : 'rounded-full bg-red-900/70 px-2 py-0.5 text-xs text-red-300'
-                    }
-                  >
-                    {tour.hostingStatus === 'active' ? 'activo' : 'suspendido'}
+          {visibles.map(({ tour, estado }) => {
+            const etiqueta = ETIQUETA_ESTADO[estado];
+            const vence = textoVence(tour);
+            return (
+              <li key={tour.slug}>
+                <button
+                  type="button"
+                  onClick={() => onAbrir(tour.slug)}
+                  className="flex w-full gap-4 rounded-tarjeta border border-linea bg-tarjeta p-4 text-left transition-colors hover:border-texto-tenue"
+                >
+                  {tour.miniatura ? (
+                    <img
+                      src={tour.miniatura}
+                      alt=""
+                      className="h-16 w-28 flex-none rounded-control border border-linea object-cover"
+                    />
+                  ) : (
+                    <span className="grid h-16 w-28 flex-none place-items-center rounded-control border border-linea bg-fondo text-texto-tenue">
+                      <Icono nombre="ojo" className="h-5 w-5" />
+                    </span>
+                  )}
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="truncate font-medium">{tour.title}</span>
+                      <Insignia tono={etiqueta.tono}>{etiqueta.texto}</Insignia>
+                    </span>
+                    <span className="mt-1 block truncate text-sm text-texto-suave">
+                      /tours/{tour.slug}
+                      {tour.clientName ? ` · ${tour.clientName}` : ''} · {tour.sceneCount}{' '}
+                      {tour.sceneCount === 1 ? 'escena' : 'escenas'}
+                    </span>
+                    <span className="mt-1 block text-xs text-texto-tenue">
+                      {vence !== null && (
+                        <span className={estado === 'por-vencer' || estado === 'vencido' ? 'text-ambar' : ''}>
+                          {vence} ·{' '}
+                        </span>
+                      )}
+                      Actualizado {new Date(tour.updatedAt).toLocaleString('es')}
+                    </span>
                   </span>
-                </div>
-                <p className="mt-1 text-sm text-slate-400">
-                  /tours/{tour.slug} · {tour.sceneCount} escena(s)
-                  {tour.clientName ? ` · ${tour.clientName}` : ''}
-                </p>
-                <p className="mt-1 text-xs text-slate-500">
-                  Actualizado {new Date(tour.updatedAt).toLocaleString('es')}
-                </p>
-              </button>
-            </li>
-          ))}
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
     </main>
   );
 }
-
-export type { TourResponse };

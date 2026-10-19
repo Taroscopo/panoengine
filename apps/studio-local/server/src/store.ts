@@ -61,6 +61,14 @@ export class WorkspaceStore {
           ...(draft.hostingExpiresAt !== undefined ? { hostingExpiresAt: draft.hostingExpiresAt } : {}),
           sceneCount: draft.scenes.length,
           updatedAt: draft.updatedAt,
+          ...(draft.scenes[0]
+            ? {
+                miniatura: `/files/tours/${draft.slug}/dist/tours/${draft.slug}/${draft.scenes[0].tiles.baseUrl.replace(
+                  /\/preview\.webp$/,
+                  '/thumb.webp',
+                )}`,
+              }
+            : {}),
         });
       }
     }
