@@ -10,6 +10,7 @@ import { Pestanas } from './componentes/Pestanas.js';
 import { Segmentado } from './componentes/Segmentado.js';
 import { avisoBorradoDist } from './mensaje-borrado.js';
 import { PanoPreview } from './PanoPreview.js';
+import type { VistaGrados } from './vista.js';
 
 interface Props {
   slug: string;
@@ -30,6 +31,7 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
   const [resultadoPublicar, setResultadoPublicar] = useState<string | null>(null);
   const [pestana, setPestana] = useState<'editor' | 'contacto' | 'ajustes'>('editor');
   const [panelDerecho, setPanelDerecho] = useState<'escena' | 'punto'>('escena');
+  const [vistaActual, setVistaActual] = useState<VistaGrados | null>(null);
   const archivoRef = useRef<HTMLInputElement>(null);
 
   const recargar = useCallback(async (): Promise<void> => {
@@ -42,6 +44,15 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
   useEffect(() => {
     void recargar();
   }, [recargar]);
+
+  // ok/aviso desaparecen solos a los ~4 s; el error se queda hasta la siguiente acción.
+  useEffect(() => {
+    if (mensaje === null || mensaje.tipo === 'error') {
+      return;
+    }
+    const t = window.setTimeout(() => setMensaje(null), 4000);
+    return () => window.clearTimeout(t);
+  }, [mensaje]);
 
   // Progreso en vivo vía SSE.
   useEffect(() => {
@@ -75,6 +86,25 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
       setMensaje({ texto: 'Tour guardado', tipo: 'ok' });
     } catch (err) {
       setMensaje({ texto: err instanceof Error ? err.message : 'Error al guardar', tipo: 'error' });
+    }
+  };
+
+  const guardarVistaInicio = async (vista: VistaGrados): Promise<void> => {
+    if (!escena) {
+      return;
+    }
+    try {
+      const actualizada = await api.parchearEscena(slug, escena.id, {
+        defaultView: { yaw: vista.giro, pitch: vista.altura, fov: vista.zoom },
+      });
+      setTour((prev) =>
+        prev
+          ? { ...prev, scenes: prev.scenes.map((sc) => (sc.id === actualizada.id ? actualizada : sc)) }
+          : prev,
+      );
+      setMensaje({ texto: 'Vista inicial guardada', tipo: 'ok' });
+    } catch (err) {
+      setMensaje({ texto: err instanceof Error ? err.message : 'Error al guardar la vista', tipo: 'error' });
     }
   };
 
@@ -145,7 +175,7 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
     }
     const base = {
       id: ulid(),
-      title: `Hotspot ${modoAgregar}`,
+      title: modoAgregar === 'nav' ? 'Ir a otra escena' : modoAgregar === 'info' ? 'Información' : 'Enlace',
       yaw: Math.round(yaw * 100) / 100,
       pitch: Math.round(pitch * 100) / 100,
       createdAt: AHORA(),
@@ -388,6 +418,8 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
                       setHotspotSel(id);
                       setPanelDerecho('punto');
                     }}
+                    onVistaActual={setVistaActual}
+                    onVistaGuardar={(v) => void guardarVistaInicio(v)}
                   />
                 </div>
               ) : (
@@ -418,6 +450,7 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
                       escena={escena}
                       tour={tour}
                       job={jobDeEscena}
+                      vistaActual={vistaActual}
                       onGuardar={guardarEscena}
                       onBorrar={() => void borrarEscena()}
                     />
@@ -616,12 +649,14 @@ function DetalleEscena({
   escena,
   tour,
   job,
+  vistaActual,
   onGuardar,
   onBorrar,
 }: {
   escena: Scene;
   tour: Tour;
   job: SceneJob | undefined;
+  vistaActual: VistaGrados | null;
   onGuardar: (cambios: Record<string, unknown>) => Promise<void>;
   onBorrar: () => void;
 }): React.JSX.Element {
@@ -678,37 +713,21 @@ function DetalleEscena({
             <p className="text-xs text-texto-tenue">Zoom</p>
           </div>
         </div>
-        <div className="mt-2 grid grid-cols-3 gap-2">
-          <label className="text-xs text-texto-tenue">
-            Giro
-            <input
-              type="number"
-              step="0.1"
-              className="mt-0.5 w-full rounded-control border border-linea bg-fondo px-2 py-1 text-sm text-texto"
-              value={form.yaw}
-              onChange={(e) => setForm({ ...form, yaw: Number(e.target.value) })}
-            />
-          </label>
-          <label className="text-xs text-texto-tenue">
-            Altura
-            <input
-              type="number"
-              step="0.1"
-              className="mt-0.5 w-full rounded-control border border-linea bg-fondo px-2 py-1 text-sm text-texto"
-              value={form.pitch}
-              onChange={(e) => setForm({ ...form, pitch: Number(e.target.value) })}
-            />
-          </label>
-          <label className="text-xs text-texto-tenue">
-            Zoom
-            <input
-              type="number"
-              className="mt-0.5 w-full rounded-control border border-linea bg-fondo px-2 py-1 text-sm text-texto"
-              value={form.fov}
-              onChange={(e) => setForm({ ...form, fov: Number(e.target.value) })}
-            />
-          </label>
-        </div>
+        <Boton
+          variante="secundario"
+          className="mt-3 w-full"
+          onClick={() =>
+            vistaActual !== null &&
+            void onGuardar({
+              defaultView: { yaw: vistaActual.giro, pitch: vistaActual.altura, fov: vistaActual.zoom },
+            })
+          }
+        >
+          Usar la vista actual
+        </Boton>
+        <p className="mt-2 text-xs text-texto-tenue">
+          Mueve la vista hasta donde quieres que empiece el visitante y pulsa el botón.
+        </p>
       </div>
 
       <details className="mb-4 rounded-control border border-linea bg-tarjeta px-3 py-2">
@@ -835,9 +854,7 @@ function DetalleHotspots({
                 onClick={() => onSeleccionar(h.id)}
               >
                 <span className="flex min-w-0 items-center gap-2">
-                  <span
-                    className={`inline-flex flex-none items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${tipo.tono}`}
-                  >
+                  <span className="inline-flex flex-none items-center gap-1 rounded-full border border-linea px-1.5 py-0.5 text-[10px] font-medium text-texto-suave">
                     <Icono nombre={tipo.icono} className="h-2.5 w-2.5" />
                     {tipo.titulo}
                   </span>
@@ -860,7 +877,7 @@ function DetalleHotspots({
       {seleccionado && (
         <div className="rounded-tarjeta border border-linea bg-tarjeta p-3">
           <h3 className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-texto-suave">
-            <Icono nombre={TIPO_PUNTO[seleccionado.type].icono} className="h-3.5 w-3.5" />
+            <Icono nombre={TIPO_PUNTO[seleccionado.type].icono} className="h-3.5 w-3.5 text-texto-suave" />
             Editando punto · {TIPO_PUNTO[seleccionado.type].titulo}
           </h3>
           <Campo etiqueta="Título">

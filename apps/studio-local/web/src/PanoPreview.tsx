@@ -4,8 +4,7 @@ import '@photo-sphere-viewer/core/index.css';
 import '@photo-sphere-viewer/markers-plugin/index.css';
 import type { Hotspot } from '@panoengine/schema';
 import { useEffect, useRef } from 'react';
-
-const RAD2DEG = 180 / Math.PI;
+import { type VistaGrados, vistaAGrados } from './vista.js';
 
 interface Props {
   previewUrl: string;
@@ -14,13 +13,18 @@ interface Props {
   modoAgregar: 'nav' | 'info' | 'link' | null;
   onAgregar: (yawDeg: number, pitchDeg: number) => void;
   onSeleccionar: (hotspotId: string) => void;
+  onVistaActual?: (vista: VistaGrados) => void;
+  onVistaGuardar?: (vista: VistaGrados) => void;
 }
 
+// Ícono blanco (el color del círculo lo pone el CSS del marcador neutro).
 const ICONOS: Record<Hotspot['type'], string> = {
-  nav: '<svg viewBox="0 0 24 24"><path fill="#fff" d="M12 2 4.5 20.3l1.4 1.4L12 18.7l6.1 3 1.4-1.4z"/></svg>',
-  info: '<svg viewBox="0 0 24 24"><path fill="#fff" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1 5h2v2h-2zm0 4h2v6h-2z"/></svg>',
-  link: '<svg viewBox="0 0 24 24"><path fill="#fff" d="M3.9 12a3.1 3.1 0 0 1 3.1-3.1h4V7H7a5 5 0 0 0 0 10h4v-1.9H7A3.1 3.1 0 0 1 3.9 12zM8 13h8v-2H8zm9-6h-4v1.9h4a3.1 3.1 0 0 1 0 6.2h-4V17h4a5 5 0 0 0 0-10z"/></svg>',
+  nav: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+  info: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>',
+  link: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>',
 };
+
+const RAD2DEG = 180 / Math.PI;
 
 export function PanoPreview(props: Props): React.JSX.Element {
   const contenedor = useRef<HTMLDivElement>(null);
@@ -55,6 +59,17 @@ export function PanoPreview(props: Props): React.JSX.Element {
       callbacks.current.onSeleccionar(e.marker.id.replace(/^h-/, ''));
     });
 
+    // Vista actual en grados del schema, notificada en cada actualización.
+    const notificar = (): void => {
+      const { onVistaActual } = callbacks.current;
+      if (onVistaActual && viewerRef.current) {
+        onVistaActual(vistaAGrados(viewerRef.current.getPosition(), viewerRef.current.getZoomLevel()));
+      }
+    };
+    viewer.addEventListener('position-updated', notificar);
+    viewer.addEventListener('zoom-updated', notificar);
+    viewer.addEventListener('ready', notificar);
+
     return () => {
       viewer.destroy();
       viewerRef.current = null;
@@ -75,20 +90,43 @@ export function PanoPreview(props: Props): React.JSX.Element {
       props.hotspots.map((h) => ({
         id: `h-${h.id}`,
         position: { yaw: (h.yaw * Math.PI) / 180, pitch: (h.pitch * Math.PI) / 180 },
-        html: `<div class="pe-marker-edit pe-marker-edit--${h.type}${props.hotspotSeleccionado === h.id ? ' pe-marker-edit--sel' : ''}">${ICONOS[h.type]}</div>`,
+        html: `<div class="pe-marker-edit${props.hotspotSeleccionado === h.id ? ' pe-marker-edit--sel' : ''}">${ICONOS[h.type]}</div>`,
         size: { width: 34, height: 34 },
         ...(h.title ? { tooltip: { content: h.title, position: 'top center' } } : {}),
       })),
     );
   }, [props.hotspots, props.hotspotSeleccionado, props.previewUrl]);
 
+  const usarVistaInicio = (): void => {
+    const viewer = viewerRef.current;
+    const { onVistaGuardar } = callbacks.current;
+    if (viewer && onVistaGuardar) {
+      onVistaGuardar(vistaAGrados(viewer.getPosition(), viewer.getZoomLevel()));
+    }
+  };
+
   return (
     <div className="relative h-full w-full">
-      <div ref={contenedor} className="h-full w-full rounded-xl" />
+      <div ref={contenedor} className="h-full w-full" />
       {props.modoAgregar && (
-        <div className="pointer-events-none absolute left-1/2 top-3 z-10 -translate-x-1/2 rounded-full bg-amber-500 px-4 py-1.5 text-sm font-semibold text-slate-950">
-          Haz clic en la panorámica para colocar el hotspot «{props.modoAgregar}»
+        <div className="pointer-events-none absolute left-1/2 top-3 z-10 -translate-x-1/2 rounded-full border border-ambar/50 bg-fondo/90 px-4 py-1.5 text-sm text-ambar">
+          Haz clic en la panorámica para colocar el punto «
+          {props.modoAgregar === 'nav'
+            ? 'Ir a otra escena'
+            : props.modoAgregar === 'info'
+              ? 'Información'
+              : 'Enlace'}
+          »
         </div>
+      )}
+      {props.onVistaGuardar && !props.modoAgregar && (
+        <button
+          type="button"
+          onClick={usarVistaInicio}
+          className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2 rounded-control border border-transparent bg-texto px-4 py-2 text-sm font-medium text-[#15171B] transition-colors hover:bg-texto-suave"
+        >
+          Usar esta vista como inicio
+        </button>
       )}
     </div>
   );

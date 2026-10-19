@@ -34,7 +34,8 @@ body {
   @apply bg-fondo text-texto font-sans antialiased;
 }
 
-/* Marcadores de puntos en el editor 360 (heredan los tokens) */
+/* Marcadores de puntos en el editor 360: NEUTROS (círculo oscuro + borde blanco);
+   azul SOLO el seleccionado. */
 .pe-marker-edit {
   width: 34px;
   height: 34px;
@@ -42,24 +43,16 @@ body {
   place-items: center;
   border-radius: 9999px;
   cursor: pointer;
-  border: 1px solid var(--color-linea);
-  background: color-mix(in srgb, var(--color-panel) 85%, transparent);
+  background: color-mix(in srgb, var(--color-panel) 92%, black);
+  border: 2px solid #ffffff;
+  transition: outline-color 0.1s ease;
+  outline: 2px solid transparent;
 }
 .pe-marker-edit svg {
   width: 18px;
   height: 18px;
-  stroke: var(--color-texto);
-}
-.pe-marker-edit--nav {
-  background: color-mix(in srgb, var(--color-rojo) 78%, transparent);
-}
-.pe-marker-edit--info {
-  background: color-mix(in srgb, var(--color-azul) 78%, transparent);
-}
-.pe-marker-edit--link {
-  background: color-mix(in srgb, var(--color-verde) 78%, transparent);
 }
 .pe-marker-edit--sel {
-  outline: 2px solid var(--color-ambar);
-  outline-offset: 2px;
+  outline-color: var(--color-azul);
+  background: var(--color-azul);
 }
