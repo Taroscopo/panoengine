@@ -85,6 +85,17 @@ function applyNullable<T extends object>(target: T, key: keyof T, value: unknown
   }
 }
 
+/** Params de ruta válidos según el contrato: slug kebab-case y sceneId ULID. */
+function paramsValidos(slug: string, sceneId?: string): boolean {
+  return (
+    slugSchema.safeParse(slug).success && (sceneId === undefined || ulidSchema.safeParse(sceneId).success)
+  );
+}
+
+function paramInvalido(reply: { code: (c: number) => { send: (b: unknown) => unknown } }): unknown {
+  return reply.code(400).send(errorReply('Parámetros de ruta inválidos (slug o sceneId)'));
+}
+
 export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
   const { store, queue, config, publisher } = deps;
 
@@ -106,6 +117,9 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
 
   app.get('/api/tours/:slug', async (req, reply) => {
     const { slug } = req.params as { slug: string };
+    if (!paramsValidos(slug)) {
+      return paramInvalido(reply);
+    }
     const draft = await store.readTour(slug);
     if (!draft) {
       return reply.code(404).send(errorReply(`No existe el tour «${slug}»`));
@@ -115,6 +129,9 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
 
   app.patch('/api/tours/:slug', async (req, reply) => {
     const { slug } = req.params as { slug: string };
+    if (!paramsValidos(slug)) {
+      return paramInvalido(reply);
+    }
     const draft = await store.readTour(slug);
     if (!draft) {
       return reply.code(404).send(errorReply(`No existe el tour «${slug}»`));
@@ -154,6 +171,9 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
 
   app.post('/api/tours/:slug/scenes', async (req, reply) => {
     const { slug } = req.params as { slug: string };
+    if (!paramsValidos(slug)) {
+      return paramInvalido(reply);
+    }
     const draft = await store.readTour(slug);
     if (!draft) {
       return reply.code(404).send(errorReply(`No existe el tour «${slug}»`));
@@ -234,6 +254,9 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
 
   app.patch('/api/tours/:slug/scenes/:sceneId', async (req, reply) => {
     const { slug, sceneId } = req.params as { slug: string; sceneId: string };
+    if (!paramsValidos(slug, sceneId)) {
+      return paramInvalido(reply);
+    }
     const draft = await store.readTour(slug);
     if (!draft) {
       return reply.code(404).send(errorReply(`No existe el tour «${slug}»`));
@@ -282,6 +305,9 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
 
   app.delete('/api/tours/:slug/scenes/:sceneId', async (req, reply) => {
     const { slug, sceneId } = req.params as { slug: string; sceneId: string };
+    if (!paramsValidos(slug, sceneId)) {
+      return paramInvalido(reply);
+    }
     const draft = await store.readTour(slug);
     if (!draft) {
       return reply.code(404).send(errorReply(`No existe el tour «${slug}»`));
@@ -306,6 +332,9 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
 
   app.post('/api/tours/:slug/publish', async (req, reply) => {
     const { slug } = req.params as { slug: string };
+    if (!paramsValidos(slug)) {
+      return paramInvalido(reply);
+    }
     const draft = await store.readTour(slug);
     if (!draft) {
       return reply.code(404).send(errorReply(`No existe el tour «${slug}»`));
@@ -343,6 +372,9 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
   // Stream SSE del progreso de procesamiento (en vivo hacia el editor).
   app.get('/api/tours/:slug/events', async (req, reply) => {
     const { slug } = req.params as { slug: string };
+    if (!paramsValidos(slug)) {
+      return paramInvalido(reply);
+    }
     const draft = await store.readTour(slug);
     if (!draft) {
       return reply.code(404).send(errorReply(`No existe el tour «${slug}»`));
