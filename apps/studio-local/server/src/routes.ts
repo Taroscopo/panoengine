@@ -205,11 +205,19 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
           ),
         );
     }
+    // Equirectangular estricto: banda [1.95, 2.05] admite el X5 (11904×5952 = 2.0007)
+    // y rechaza fotos normales (4:3, 3:2, 16:9…) con 422 (auditoría A6).
     const ratio = (meta.width ?? 1) / (meta.height ?? 1);
-    if (ratio < 1.9 || ratio > 2.1) {
-      warnings.push(
-        `Relación de aspecto ${ratio.toFixed(3)}:1 (se esperaba 2:1 equirectangular); el recorte podría deformarse`,
-      );
+    if (ratio < 1.95 || ratio > 2.05) {
+      await fs.unlink(masterPath).catch(() => undefined);
+      return reply
+        .code(422)
+        .send(
+          errorReply(
+            `La imagen no es equirectangular 2:1 (relación ${ratio.toFixed(3)}:1, ${meta.width}×${meta.height}); ` +
+              'exporta el panorama 360 desde Insta360 e inténtalo de nuevo',
+          ),
+        );
     }
 
     const revHash = await computeRevHash(masterPath);
@@ -319,6 +327,17 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
     if (idx === -1) {
       return reply.code(404).send(errorReply('No existe la escena'));
     }
+    const escena = draft.scenes[idx];
+    if (!escena) {
+      return reply.code(404).send(errorReply('No existe la escena'));
+    }
+    // Se elimina su carpeta de dist/ (tiles/preview/thumb de esa revisión) para
+    // que la próxima publicación no los vuelva a subir ni a publicar huérfanos.
+    // El master se conserva (fuente de verdad, RULES.md §3).
+    await fs.rm(store.distSceneDir(slug, escena.id, escena.revHash), {
+      recursive: true,
+      force: true,
+    });
     draft.scenes.splice(idx, 1);
     if (draft.defaultSceneId === sceneId) {
       draft.defaultSceneId = draft.scenes[0]?.id;
@@ -326,7 +345,7 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
     await store.writeTour(draft);
     return {
       ok: true,
-      nota: 'Los archivos en disco (master y tiles) se conservan; el directorio dist se limpia en la próxima publicación',
+      nota: 'Carpeta de la escena en dist/ eliminada; el master se conserva en masters/',
     };
   });
 
