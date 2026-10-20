@@ -212,3 +212,22 @@ Orden: «antes de tocar nada, propón qué cabeceras pondrías y cómo se compor
 ## Regla nueva del auditor (registrada)
 
 - **`analyze_image` (o cualquier herramienta que suba capturas a un servidor externo) queda PROHIBIDA con datos reales de clientes**; solo con datos de demostración. Preferir la descripción propia o la medición por código (colores de píxeles, posiciones del DOM). Nota de cumplimiento: todas las capturas analizadas hasta la fecha contenían exclusivamente datos sintéticos de demo (tours «Demo E3b-fix» y «Hotel Aurora»).
+
+---
+
+## Nota de Cloudflare — el Worker de staging «ya existe»: investigación y flags explícitos
+
+**Investigación (solo lectura; cuenta `6eecb0304c90ebf93e1e209dfd989f9a` confirmada = OAuth local de wrangler, correo trespa.paginas@gmail.com, subdominio `trespa-paginas`):**
+
+- `GET /accounts/:id/workers/scripts` (API): la cuenta contiene ~20 Workers de OTROS proyectos de la agencia — **ninguno se llama `panoengine-*`**: `panoengine-edge-viewer-staging` **no existe como script**.
+- `wrangler versions list` y `wrangler deployments list` con `wrangler.staging.jsonc`: ambos **vacíos** — ni versiones ni despliegues, jamás.
+- **¿Lo creé yo en un despliegue anterior? NO.** Nunca ejecuté `wrangler deploy` (prohibido por RULES §9 y sin orden expresa). El único intento de la historia fue el del workflow «Deploy staging» del 2026-10-20, que murió ANTES de hacer ninguna llamada a la API — error literal del log: `[ERROR] In a non-interactive environment, it's necessary to set a CLOUDFLARE_API_TOKEN environment variable for wrangler to work…` — y un fallo de autenticación ocurre antes de cualquier operación de creación.
+- **¿Desde cuándo existe? No existe.** La URL `panoengine-edge-viewer-staging.trespa-paginas.workers.dev` se ve «desactivada» porque es el estado natural de un nombre sin Worker detrás: workers.dev responde así a cualquier subdominio no desplegado. El config de staging existe desde el 2026-10-18 (commits `fbdbbd4`/`983a89b`) y solo se usó para dry-run y dev. El **primer despliegue del CI** (cuando existan los secrets) **creará** el Worker y, con `workers_dev: true`, **activará** su URL — curando exactamente lo que el panel muestra hoy.
+
+**Cambios aplicados (`apps/edge-viewer/wrangler.staging.jsonc`):** `"workers_dev": true` (publicar siempre en workers.dev; sin depender del estado del panel) y `"preview_urls": false` (sin URLs de vista previa por versión). Validación con `wrangler deploy --dry-run --config wrangler.staging.jsonc` SIN credenciales → **exit 0**, mismos bindings (`TOURS → panoengine-tours-staging`, `ASSETS`, 4 assets, 204.01 KiB).
+
+**Smoke — extracción de URL verificada por código** (sin herramientas externas, según la regla nueva): el patrón exacto del workflow (`grep -Eo 'https://[a-z0-9-]+\.[a-z0-9-]+\.workers\.dev'`) aplicado a la línea canónica de salida de wrangler extrae literalmente `https://panoengine-edge-viewer-staging.trespa-paginas.workers.dev`. Las URL de vista previa (3 etiquetas, `<hash>.<nombre>.<subdominio>.workers.dev`) NO casan con el patrón, y con `preview_urls: false` no aparecerán en la salida.
+
+**`pnpm verify` tras el cambio (literal, exit 0 — 87 tests: schema 23, edge-viewer 26, web 16, server 22):**
+
+```text

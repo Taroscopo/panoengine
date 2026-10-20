@@ -3,6 +3,11 @@
   "name": "panoengine-edge-viewer-staging",
   "main": "src/worker/index.ts",
   "compatibility_date": "2026-09-01",
+  // Despliegue predecible (orden del auditor): publicar siempre en workers.dev
+  // (el primer deploy crea el Worker y activa su URL) y sin URLs de vista
+  // previa por versión.
+  "workers_dev": true,
+  "preview_urls": false,
   "assets": {
     "directory": "./dist-viewer",
     "binding": "ASSETS",
