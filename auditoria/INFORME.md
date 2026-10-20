@@ -1,17 +1,34 @@
-# Informe de entrega — CI/CD staging (visor → staging vía GitHub)
+# Informe de entrega — E3b-fix (zoom WYSIWYG) + Vencidos en «Por vencer»
 
-- **Commit auditado:** `700c6537c9c9604900b3e9c5c727a6466f2ecbad` («CI/CD staging»; SOLO `.github/workflows/ci.yml` y `.github/workflows/deploy-staging.yml`, 2 archivos, +121 líneas). Este informe viaja en el commit inmediatamente posterior.
-- **Entrega anterior:** E3b = `642676c6e844328fce59a439db0087d4e5fabca2` + su informe en `6fb6a1e`, ambos ya en `origin/main`.
-- **Fecha:** 2026-10-18
+- **Commits de esta entrega:** `479b01add5444ac69896a60f4f6d430002b31c94` (E3b-fix — PENDIENTE DE APROBACIÓN del auditor; NO se declara completa) y `9146ab8cad9dcf000c71732410219a222139dd13` («Vencidos en Por vencer», decisión del propietario). Este informe viaja en el commit inmediatamente posterior.
+- **Fecha:** 2026-10-18 · **Estado del push:** PENDIENTE — 4 commits esperan el scope `workflow` de GitHub que Andrés autorizará en el paso «subir y auditar CI/CD» (`700c653`, `678fb2f`, `479b01add5444ac69896a60f4f6d430002b31c94`, `9146ab8cad9dcf000c71732410219a222139dd13` + este informe). `origin/main` sigue en `6fb6a1e`.
+- **E3b NO está aprobada** y así queda registrado; este informe nunca dice «E3b completa».
 
-## Qué cambió (puntos)
+## El error de fondo de zoom (diagnóstico y prueba)
 
-1. **`.github/workflows/ci.yml` — «CI»**: corre en cada push a `main` y en cada pull request. Pasos: checkout → pnpm 12.14.0 → Node 24 (con caché de pnpm) → `pnpm install --frozen-lockfile` → `pnpm verify` completo (typecheck + tests + lint + build). Permisos mínimos `contents: read`; timeout 20 min; si algo falla, el check queda rojo.
-2. **`.github/workflows/deploy-staging.yml` — «Deploy staging»**: se dispara SOLO cuando «CI» termina en verde en un push a `main` (`workflow_run` + `conclusion == 'success'` + `event == 'push'` + `head_branch == 'main'`). Hace checkout del SHA exacto que pasó CI, usa `environment: staging` y `concurrency` (un despliegue a la vez, en cola, sin cancelaciones). Construye SOLO el visor (`build:viewer`) y despliega únicamente `apps/edge-viewer` con `wrangler deploy --config wrangler.staging.jsonc` (Worker `panoengine-edge-viewer-staging` + bucket `panoengine-tours-staging`). **El `wrangler.jsonc` de producción no se usa en ningún paso** (por eso tampoco se ejecuta el `build` completo del paquete, que termina en un dry-run contra ese config). La URL pública `*.workers.dev` se extrae de la salida del propio wrangler.
-3. **Smoke mínimo tras el despliegue** (no depende de tours subidos; la batería completa 402/410, Range 206, ETag/304 sigue siendo A2): `/healthz` → 200 con el cuerpo del servicio; tour inexistente → 404 con `Content-Type: text/html` y `Cache-Control: no-store`, sin cuerpo de tour. Cualquier fallo deja el job en rojo.
-4. **Credenciales**: solo desde GitHub Secrets (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`), inyectadas únicamente en el paso de despliegue. Cero secretos en el repo, en logs o en este informe; ningún `echo` de variables de entorno.
-5. **Versiones**: el repo no declara `packageManager` ni `.nvmrc`, así que el workflow fija las del entorno de desarrollo (Node 24.19.0 → `node-version: 24`; pnpm 12.14.0; `engines.node >=22` cumplido). Si el propietario prefiere versiones declaradas en el repo, es un cambio que pediría autorización expresa (fuera del «SOLO esto»).
-6. **Validaciones hechas en local, sin tocar Cloudflare**: sintaxis YAML de ambos archivos (parse correcto, disparadores y jobs según lo pedido) y `wrangler deploy --dry-run --config wrangler.staging.jsonc` con HOME limpia y sin credenciales → exit 0, binding `TOURS → panoengine-tours-staging`, «--dry-run: exiting now». Esto demuestra que el config de staging es válido para desplegar y que el dry-run dentro de `pnpm verify` no necesita autenticación (el CI arrancará verde aunque aún no haya secrets).
+- **Diagnóstico:** la conversión de `packages/schema/src/fov.ts` estaba ESPEJADA respecto a Photo Sphere Viewer. Nuestra fórmula decía «nivel 0 = 30°, nivel 100 = 90°»; PSV 5.15.1 (código interno del paquete instalado, `DataHelper`) hace **nivel 0 = maxFov (90°, máxima apertura) y nivel 100 = minFov (30°, máximo zoom)**. Resultado: toda vista guardada desde el estudio llegaba invertida al visor público (p. ej. un `defaultView.fov` de 90° —abierto— se mostraba como zoom al mínimo FOV).
+- **Segundo desajuste:** PSV interpola el nivel entre el `minFov`/`maxFov` ACTIVOS; el visor público recorta con `zoomLimitToPsv(escena.zoomLimit)` (por defecto 60–150 → 60–90) pero TODAS las conversiones usaban 30–90 fijos, y el visor del editor usaba los límites por defecto de PSV (30–90). Mismo nivel, distinto FOV en cada lado.
+- **Prueba (tabla de FOV medida):** herramienta nueva `packages/schema/tools/medir-fov.mjs` — instancia el MISMO `@photo-sphere-viewer/core` 5.15.1 + three 0.185.1 del estudio en Chromium real (SwiftShader) y mide `viewer.state.vFov` para cada nivel 0–100 (paso 5), con límites 30–90 y 60–90. Salida íntegra abajo. La tabla `TABLA_FOV_MEDIDA` vive ahora en `fov.ts` y los tests exigen que la fórmula coincida con lo medido (±0.5°).
+
+### Salida literal de la medición (JSON, /tmp→ tabla volcada a fov.ts)
+
+```json
+{"core":"5.15.1","three":"0.185.1","30-90":{"0":90,"5":87,"10":84,"15":81,"20":78,"25":75,"30":72,"35":69,"40":66,"45":63,"50":60,"55":57,"60":54,"65":51,"70":48,"75":45,"80":42,"85":39,"90":36,"95":33,"100":30},"60-90":{"0":90,"5":88.5,"10":87,"15":85.5,"20":84,"25":82.5,"30":81,"35":79.5,"40":78,"45":76.5,"50":75,"55":73.5,"60":72,"65":70.5,"70":69,"75":67.5,"80":66,"85":64.5,"90":63,"95":61.5,"100":60}}
+```
+
+## Qué cambió — commit E3b-fix (`479b01add5444ac69896a60f4f6d430002b31c94`)
+
+1. `packages/schema/src/fov.ts`: dirección corregida a la REAL de PSV (`zoomLvlToFov = maxFov − nivel/100·(maxFov−minFov)`; `fovToZoomLvl` = reflejo con redondeo, idéntico a PSV), con `TABLA_FOV_MEDIDA` y documentación de proveniencia. Ambas funciones aceptan los **límites activos**.
+2. Call-sites con límites activos: `app.ts` del visor (`defaultZoomLvl`, `targetFov` con los límites del NODO DESTINO, intro planeta), `vista.ts` (`zoomLvlAFovGrados`/`vistaAGrados` con `limites`).
+3. `PanoPreview.tsx`: el visor del editor adopta `minFov`/`maxFov = zoomLimitToPsv(escena.zoomLimit)` (en creación y en vivo con `setOptions` al editarlos) — el editor y el visor público quedan con los mismos límites.
+4. Botón «Usar esta vista como inicio» ahora `bottom-14`: flota SOBRE la navbar de PSV (40 px) sin tapar el deslizador ni pantalla completa (antes los cubría).
+5. Lint: parámetro `tour` fuera de `DetalleEscena` → **biome sin ningún aviso**.
+6. Tests: schema 23 (dirección medida, límites 60–90, tabla ±0.5°, recortes, round-trips, zoomLimitToPsv) y web 16 (vista con y sin límites).
+
+## Qué cambió — commit Vencidos en «Por vencer» (`9146ab8cad9dcf000c71732410219a222139dd13`) — decisión del propietario
+
+1. `estado-tour.ts`: `pasaFiltro('vencido','por-vencer') = true` — los vencidos cuentan en el filtro y contador de «Por vencer»; siguen en «Todos»; NO en «Activos» ni «Suspendidos» (tests actualizados para exactamente eso).
+2. `ToursPage.tsx`: texto «Venció hace N días» en ROJO (por-vencer sigue en ámbar); resumen superior «N vence pronto o venció/vencen pronto o vencieron».
 
 ## Salida literal de `pnpm verify` (sin `| tail`; exit 0)
 
@@ -30,81 +47,66 @@ packages/schema test$ vitest run
 packages/schema test: 
 packages/schema test:  RUN  v3.2.7 /home/leo/Música/360 MOTOR TOURS/packages/schema
 packages/schema test: 
-packages/schema test:  ✓ test/fov.test.ts (5 tests) 3ms
-packages/schema test:  ✓ test/constants.test.ts (4 tests) 3ms
-packages/schema test:  ✓ test/tour.test.ts (12 tests) 11ms
+packages/schema test:  ✓ test/fov.test.ts (7 tests) 5ms
+packages/schema test:  ✓ test/constants.test.ts (4 tests) 4ms
+packages/schema test:  ✓ test/tour.test.ts (12 tests) 15ms
 packages/schema test: 
 packages/schema test:  Test Files  3 passed (3)
-packages/schema test:       Tests  21 passed (21)
-packages/schema test:    Start at  11:37:06
-packages/schema test:    Duration  352ms (transform 96ms, setup 0ms, collect 158ms, tests 17ms, environment 0ms, prepare 187ms)
+packages/schema test:       Tests  23 passed (23)
+packages/schema test:    Start at  21:50:42
+packages/schema test:    Duration  369ms (transform 89ms, setup 0ms, collect 162ms, tests 24ms, environment 0ms, prepare 178ms)
 packages/schema test: 
 packages/schema test: Done
 apps/edge-viewer test$ vitest run
 apps/studio-local/server test$ vitest run
 apps/studio-local/web test$ vitest run
-apps/studio-local/server test: 
-apps/studio-local/server test:  RUN  v3.2.7 /home/leo/Música/360 MOTOR TOURS/apps/studio-local/server
-apps/studio-local/server test: 
 apps/studio-local/web test: 
 apps/studio-local/web test:  RUN  v3.2.7 /home/leo/Música/360 MOTOR TOURS/apps/studio-local/web
 apps/studio-local/web test: 
+apps/studio-local/server test: 
+apps/studio-local/server test:  RUN  v3.2.7 /home/leo/Música/360 MOTOR TOURS/apps/studio-local/server
+apps/studio-local/server test: 
 apps/edge-viewer test: 
 apps/edge-viewer test:  RUN  v3.2.7 /home/leo/Música/360 MOTOR TOURS/apps/edge-viewer
 apps/edge-viewer test: 
 apps/edge-viewer test:  ✓ test/texto.test.ts (4 tests) 4ms
-apps/edge-viewer test:  ✓ test/worker.test.ts (22 tests) 10ms
 apps/studio-local/web test:  ✓ test/estado-tour.test.ts (7 tests) 5ms
+apps/studio-local/web test:  ✓ test/mensaje-borrado.test.ts (3 tests) 7ms
+apps/edge-viewer test:  ✓ test/worker.test.ts (22 tests) 9ms
 apps/edge-viewer test: 
 apps/edge-viewer test:  Test Files  2 passed (2)
 apps/edge-viewer test:       Tests  26 passed (26)
-apps/edge-viewer test:    Start at  11:37:07
-apps/edge-viewer test:    Duration  799ms (transform 155ms, setup 0ms, collect 143ms, tests 14ms, environment 0ms, prepare 294ms)
+apps/edge-viewer test:    Start at  21:50:43
+apps/edge-viewer test:    Duration  878ms (transform 103ms, setup 0ms, collect 129ms, tests 13ms, environment 0ms, prepare 244ms)
 apps/edge-viewer test: 
-apps/studio-local/web test:  ✓ test/mensaje-borrado.test.ts (3 tests) 3ms
-apps/studio-local/server test:  ✓ test/store-miniatura.test.ts (1 test) 11ms
-apps/studio-local/web test:  ✓ test/vista.test.ts (4 tests) 4ms
+apps/studio-local/web test:  ✓ test/vista.test.ts (6 tests) 5ms
 apps/studio-local/web test: 
 apps/studio-local/web test:  Test Files  3 passed (3)
-apps/studio-local/web test:       Tests  14 passed (14)
-apps/studio-local/web test:    Start at  11:37:07
-apps/studio-local/web test:    Duration  940ms (transform 251ms, setup 0ms, collect 332ms, tests 12ms, environment 1ms, prepare 492ms)
+apps/studio-local/web test:       Tests  16 passed (16)
+apps/studio-local/web test:    Start at  21:50:43
+apps/studio-local/web test:    Duration  960ms (transform 234ms, setup 0ms, collect 335ms, tests 16ms, environment 1ms, prepare 558ms)
 apps/studio-local/web test: 
+apps/studio-local/server test:  ✓ test/store-miniatura.test.ts (1 test) 12ms
 apps/edge-viewer test: Done
-apps/studio-local/server test:  ✓ test/r2.test.ts (6 tests) 153ms
 apps/studio-local/web test: Done
+apps/studio-local/server test:  ✓ test/r2.test.ts (6 tests) 132ms
 apps/studio-local/server test: stderr | test/borrar-escena-error.test.ts > punto 1: fs.rm falla al borrar escena — sin 500, con aviso y tour ya guardado > responde 200 + aviso de carpeta no borrada, y el tour.json ya no contiene la escena
 apps/studio-local/server test: [borrar escena] no se pudo eliminar la carpeta dist de 01M5RMFA11A000000000000000: EACCES simulado: rm bloqueado
 apps/studio-local/server test: 
-apps/studio-local/server test:  ✓ test/borrar-escena-error.test.ts (1 test) 104ms
-apps/studio-local/server test:  ✓ test/app.test.ts (9 tests) 2492ms
-apps/studio-local/server test:    ✓ borrar escena (A4) y relación 2:1 estricta (A6) > admite 2:1 exacto del X5 (11904×5952) y al borrar la escena elimina su carpeta dist/  2178ms
-apps/studio-local/server test:  ✓ test/tiler.test.ts (5 tests) 3358ms
-apps/studio-local/server test:    ✓ cortador sharp (imagen sintética) > la pirámide genera exactamente 168 tiles con las dimensiones de nivel correctas  3112ms
+apps/studio-local/server test:  ✓ test/borrar-escena-error.test.ts (1 test) 63ms
+apps/studio-local/server test:  ✓ test/app.test.ts (9 tests) 2489ms
+apps/studio-local/server test:    ✓ borrar escena (A4) y relación 2:1 estricta (A6) > admite 2:1 exacto del X5 (11904×5952) y al borrar la escena elimina su carpeta dist/  2208ms
+apps/studio-local/server test:  ✓ test/tiler.test.ts (5 tests) 3463ms
+apps/studio-local/server test:    ✓ cortador sharp (imagen sintética) > la pirámide genera exactamente 168 tiles con las dimensiones de nivel correctas  3221ms
 apps/studio-local/server test: 
 apps/studio-local/server test:  Test Files  5 passed (5)
 apps/studio-local/server test:       Tests  22 passed (22)
-apps/studio-local/server test:    Start at  11:37:07
-apps/studio-local/server test:    Duration  4.37s (transform 335ms, setup 0ms, collect 1.37s, tests 6.12s, environment 2ms, prepare 526ms)
+apps/studio-local/server test:    Start at  21:50:43
+apps/studio-local/server test:    Duration  4.58s (transform 464ms, setup 0ms, collect 1.53s, tests 6.16s, environment 1ms, prepare 671ms)
 apps/studio-local/server test: 
 apps/studio-local/server test: Done
 $ biome check .
-apps/studio-local/web/src/EditorPage.tsx:650:3 lint/correctness/noUnusedFunctionParameters ━━━━━━━━━━
-
-  ! This parameter tour is unused.
-  
-    648 │ function DetalleEscena({
-    649 │   escena,
-  > 650 │   tour,
-        │   ^^^^
-    651 │   job,
-    652 │   vistaActual,
-  
-  i Unused parameters might be the result of an incomplete refactoring.
-  
-
-Checked 80 files in 40ms. No fixes applied.
-Found 1 warning.
+Checked 81 files in 39ms. No fixes applied.
 packages/schema build$ tsc -p tsconfig.json
 packages/schema build: Done
 apps/edge-viewer build$ pnpm build:viewer && tsc -p tsconfig.worker.json && wrangler deploy --dry-run --outdir dist-worker
@@ -120,26 +122,26 @@ apps/edge-viewer build: rendering chunks...
 apps/edge-viewer build: computing gzip size...
 apps/edge-viewer build: ../dist-viewer/index.html                   1.04 kB │ gzip:   0.49 kB
 apps/edge-viewer build: ../dist-viewer/assets/index-CXpuqP9x.css   18.42 kB │ gzip:   4.36 kB
-apps/edge-viewer build: ../dist-viewer/assets/index-_qa26ZeC.js   803.12 kB │ gzip: 211.43 kB
+apps/edge-viewer build: ../dist-viewer/assets/index-DgmAIHwU.js   803.20 kB │ gzip: 211.47 kB
 apps/edge-viewer build: 
 apps/edge-viewer build: (!) Some chunks are larger than 500 kB after minification. Consider:
 apps/edge-viewer build: - Using dynamic import() to code-split the application
 apps/edge-viewer build: - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
 apps/edge-viewer build: - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
-apps/edge-viewer build: ✓ built in 1.77s
+apps/edge-viewer build: ✓ built in 1.92s
 apps/studio-local/server build: Done
 apps/studio-local/web build: ✓ 67 modules transformed.
 apps/studio-local/web build: rendering chunks...
 apps/studio-local/web build: computing gzip size...
-apps/studio-local/web build: dist/index.html                   0.40 kB │ gzip:   0.27 kB
-apps/studio-local/web build: dist/assets/index-DfaN45ut.css   28.70 kB │ gzip:   6.77 kB
-apps/studio-local/web build: dist/assets/index-fOz3OBZk.js   989.13 kB │ gzip: 269.28 kB
+apps/studio-local/web build: dist/index.html                   0.40 kB │ gzip:   0.28 kB
+apps/studio-local/web build: dist/assets/index-CN4Q_QaX.css   28.70 kB │ gzip:   6.77 kB
+apps/studio-local/web build: dist/assets/index-KY3OX36t.js   989.60 kB │ gzip: 269.93 kB
 apps/studio-local/web build: 
 apps/studio-local/web build: (!) Some chunks are larger than 500 kB after minification. Consider:
 apps/studio-local/web build: - Using dynamic import() to code-split the application
 apps/studio-local/web build: - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
 apps/studio-local/web build: - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
-apps/studio-local/web build: ✓ built in 2.26s
+apps/studio-local/web build: ✓ built in 2.40s
 apps/studio-local/web build: Done
 apps/edge-viewer build: 
 apps/edge-viewer build:  ⛅️ wrangler 4.151.1 (update available 4.151.2)
@@ -154,78 +156,44 @@ apps/edge-viewer build:
 apps/edge-viewer build: --dry-run: exiting now.
 apps/edge-viewer build: Done
 VERIFY_EXIT=0
-```
+\`\`\`
 
-- **Exit:** 0 (última línea del bloque: `VERIFY_EXIT=0`).
-- **Tests:** 83 en total, todos en verde — schema 21, edge-viewer 26, web 14, server 22.
-- **Biome:** el mismo 1 aviso NO bloqueante de la entrega anterior (`noUnusedFunctionParameters`: parámetro `tour` sin usar en `DetalleEscena`, `apps/studio-local/web/src/EditorPage.tsx:650`). Esta etapa no toca código.
+- **Exit:** 0. **Tests:** 87 (schema 23, edge-viewer 26, web 16, server 22). **Biome:** 0 errores, 0 avisos (el aviso histórico del parámetro \`tour\` quedó resuelto).
 
-## Capturas
+## Capturas (build fresco + servidor reiniciado antes de capturar)
 
-- Ninguna nueva: etapa sin cambios de interfaz. GitHub Actions todavía no tiene ejecuciones de estos workflows (se crean con este push).
+- \`auditoria/estudio-v2-e3b-fix.png\` — editor: botón flotante SOBRE la barra de PSV sin tapar controles; panorámica renderizada; marcador visible.
+- \`auditoria/estudio-v2-e3b-fix-punto.png\` — marcador con anillo AZUL de selección + panel «Editando punto · Información» + «Eliminar punto».
+- \`auditoria/estudio-v2-vencidos.png\` — lista con «2 tours · 1 activo · 1 vence pronto o venció», filtros Todos 2 / Activos 1 / Por vencer 1 / Suspendidos 0, tarjeta «Vencido» con «Venció hace N días» en rojo.
 
-## Comportamiento esperado tras este push (importante)
+## Decisiones del propietario registradas (también en auditoria/BACKLOG.md)
 
-- El push disparará «CI» en GitHub → debería quedar en **verde** (el mismo verify que acaba de pasar en local, sin credenciales).
-- «Deploy staging» se disparará al terminar CI y **quedará en rojo mientras no existan los secrets**: wrangler se niega a desplegar en entorno no interactivo sin `CLOUDFLARE_API_TOKEN`. Es lo esperado bajo la orden (ningún despliegue real desde aquí); el primer despliegue ocurrirá cuando Andrés cargue los secrets y haya un push a main (o un «Re-run» del workflow).
+1. **Taroscopo es y sigue siendo el dueño del repo.** Push SOLO con acceso Taroscopo vía gh/HTTPS; prohibida la clave SSH de \`trespapaginas-source\` y tocar \`~/.ssh\`; Secrets y entorno \`staging\` en \`Taroscopo/panoengine\`. **Ejecutado:** \`~/.ssh/config\` restaurado del respaldo (diff verificado idéntico al original; respaldo eliminado). Queda una entrada de clave de host de \`ssh.github.com\` en \`known_hosts\` (inerte, no se usará).
+2. **Vencidos en «Por vencer»** — implementada en \`$H2\` (arriba).
 
-## Qué debe hacer Andrés (pasos exactos)
+## Backlog anotado (orden de Andrés, sin construir)
 
-**1. Crear el token en Cloudflare (una sola vez)**
-   1. Entra en `https://dash.cloudflare.com` con la cuenta de la agencia y selecciona la cuenta correcta.
-   2. Ve a **Manage Account → Account API Tokens** (atajo directo: `https://dash.cloudflare.com/?to=/:account/api-tokens`) y pulsa **Create Token**.
-   3. Elige crear un **token personalizado** («Custom token»), no la plantilla. Nómbralo p. ej. `panoengine-ci-staging`.
-   4. Permisos EXACTOS (verificados en la documentación oficial de Cloudflare, hoy):
-      - Cuenta → **Workers Scripts** → **Editar**
-      - Cuenta → **Account Settings** → **Leer**
-      - Usuario → **User Details** → **Leer**
-      - Usuario → **User Memberships** → **Leer**
-   5. Recursos de cuenta: **solo la cuenta de la agencia**. Nada de zonas ni permisos de DNS (el worker vive en `*.workers.dev`, sin rutas).
-   6. **Continue to summary → Create Token** y copia el valor mostrado (se ve **una sola vez**).
-   - *Por qué esta lista:* la plantilla «Edit Cloudflare Workers» incluye además Zone·Workers Routes Write, Workers KV Storage Write, Workers R2 Storage Write y Workers Tail Read que NO hacen falta aquí: desplegar un Worker con un binding R2 no requiere permisos sobre R2, y no usamos rutas. Si el primer despliegue fallara por algún permiso de lectura distinto, el log de GitHub nombra el permiso exacto que falta: se añade solo ese (nunca más escrituras de las listadas).
-   - *Dónde ver tu Account ID:* `https://developers.cloudflare.com/fundamentals/account/find-account-and-zone-ids/`.
+- (a) Publicar un tour SIN escenas → error claro en español.
+- (b) El botón «Publicar» debe usar el \`edgeUrl\` del servidor (E7).
+- Registro completo en \`auditoria/BACKLOG.md\`.
 
-**2. Guardar los dos secrets en GitHub**
-   1. Entra en `https://github.com/Taroscopo/panoengine` → pestaña **Settings**.
-   2. En la sección **Security** del menú lateral: **Secrets and variables → Actions**.
-   3. Botón **New repository secret**. Crea DOS:
-      - Nombre `CLOUDFLARE_API_TOKEN` → valor: el token copiado de Cloudflare.
-      - Nombre `CLOUDFLARE_ACCOUNT_ID` → valor: el ID de tu cuenta de Cloudflare.
-   - Guía oficial: `https://docs.github.com/en/actions/security-guides/using-secrets-in-github-actions`.
+## Propuesta H1 — cabeceras de seguridad del Worker (SOLO PROPUESTA; nada tocado)
 
-**3. Crear el entorno «staging»**
-   1. Mismo repo → **Settings → Environments** → **New environment**.
-   2. Nombre EXACTO: `staging` → **Configure environment**.
-   3. No hace falta marcar ninguna regla de protección para staging (las reglas de aprobación quedan para `production`, el día que se ordenen).
-   - Guía oficial: `https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment`.
+Orden: «antes de tocar nada, propón qué cabeceras pondrías y cómo se comportan con el visor (PSV, tiles, Range/ETag)». Propuesta:
 
-**4. Disparar el primer despliegue**
-   - Con los secrets cargados, el siguiente push a `main` despliega solo. También puedes forzarlo desde la pestaña **Actions** → workflow **Deploy staging** → **Re-run all jobs**.
-   - Verde = visor vivo en `https://panoengine-edge-viewer-staging.<tu-subdominio>.workers.dev` (la URL exacta aparece en el log del paso de despliegue).
+| Cabecera | Valor | Comportamiento con el visor |
+|---|---|---|
+| \`X-Content-Type-Options\` | \`nosniff\` | Todas las respuestas (HTML, JSON, tiles webp). Sin efecto en PSV (canvas/WebGL); evita que el navegador reinterprete el MIME de tiles o del tour.json. |
+| \`Referrer-Policy\` | \`strict-origin-when-cross-origin\` | Enlaces salientes (wa.me de WhatsApp) reciben solo el origen; tiles y assets son mismo origen y no cambian. |
+| \`Permissions-Policy\` | \`camera=(), microphone=(), geolocation=(), payment=()\` | El visor no usa ninguna de estas APIs. Ojo futuro: una vertiente con giroscopio/WebXR exigiría permitir \`gyroscope\`/\`xr-spatial-tracking\`. |
+| \`X-Frame-Options\` / CSP \`frame-ancestors\` | **PENDIENTE DE DECISIÓN** | Los tours podrían necesitar EMBEBERSE en webs de clientes; \`SAMEORIGIN\` lo bloquearía. Propuesta: no añadirla en H1 y, cuando se ordene, usar CSP \`frame-ancestors\` configurable. |
+| CSP completa | **Postergada** | PSV usa estilos/scripts inline; una CSP estricta exige nonces/hashes y pruebas. Mejor H2/producción, no H1. |
 
-## Aclaración (orden punto 7)
-
-- **El despliegue automático NO sube tours.** Los tours (pirámide de tiles, `tour.json`, miniaturas) siguen publicándose desde el estudio local con el botón **«Publicar»** (publisher R2). Ese paso sigue pendiente de A2: falta el `.env` con el token R2 S3 en `apps/studio-local/server/`.
-
-## Señalizaciones para el auditor (sin acción en esta entrega)
-
-- El Worker **aún no emite** cabeceras clásicas de seguridad (`X-Content-Type-Options`, `Referrer-Policy`, etc.); el smoke valida las que existen hoy (`Content-Type: text/html` y `Cache-Control: no-store` en páginas de error/gate). Añadirlas sería un cambio de código del worker, fuera del «SOLO esto» de esta entrega.
-- Aviso biome persistente del parámetro `tour` sin usar en `DetalleEscena` (no bloqueante).
-- El repositorio sigue en `Taroscopo/panoengine` (mudanza a `trespa.paginas` pendiente de decisión del propietario).
+- **Range/ETag:** las cabeceras se añaden como middleware a TODAS las respuestas SIN tocar \`Cache-Control\`/\`ETag\`/\`Accept-Ranges\` → 206/304/416 quedan intactos; los tests del Worker se amplían para exigirlas (incluidas las de error 404/402/410, que hoy ya llevan \`no-store\`).
+- **Smoke de staging:** el paso de cabeceras del smoke del CI se ampliaría para exigir \`nosniff\` en la 404.
 
 ## Qué NO se hizo
 
-- **Ningún despliegue real ejecutado por mí** (orden punto 8): ningún `wrangler deploy` real, ningún toque a Cloudflare desde esta máquina (el bucket de staging existente no se modificó).
-- No se creó workflow de producción (orden punto 5). Cuando se ordene: manual (`workflow_dispatch`) con aprobación obligatoria en un entorno `production`.
-- No se tocaron `RULES.md`, `wrangler.jsonc`, `wrangler.staging.jsonc`, `package.json`, lockfile ni código de las apps.
-- E4 no empezado — prohibido hasta el OK del auditor.
-
-## Fuentes verificadas el 2026-10-18
-
-- Cloudflare — GitHub Actions + token para wrangler en CI: `https://developers.cloudflare.com/workers/ci-cd/external-cicd/github-actions/`
-- Cloudflare — permisos y bindings (desplegar con binding R2 no requiere permisos R2): `https://developers.cloudflare.com/workers/authorization/` y `https://developers.cloudflare.com/workers/authorization/workers/`
-- Cloudflare — composición de la plantilla «Edit Cloudflare Workers»: `https://developers.cloudflare.com/fundamentals/api/reference/template/`
-- Cloudflare — encontrar el Account ID: `https://developers.cloudflare.com/fundamentals/account/find-account-and-zone-ids/`
-- Cloudflare — remote bindings (`remote: true` es solo para desarrollo local; el deploy lo ignora): `https://developers.cloudflare.com/workers/local-development/#remote-bindings`
-- GitHub — crear secrets de repositorio: `https://docs.github.com/en/actions/security-guides/using-secrets-in-github-actions`
-- GitHub — entornos de despliegue: `https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment`
+- **Ningún push** (esperando el scope \`workflow\`; 5 commits en cola incluido este informe). Sin fuerza, sin deploy, Cloudflare intacta.
+- E4 NO empezado (prohibido hasta OK). H1 sin código (solo esta propuesta). Sin cambios en \`RULES.md\`, \`wrangler.jsonc\` ni \`wrangler.staging.jsonc\`.
+- El \`workspace/\` local tiene solo los 2 tours SINTÉTICOS de las capturas (\`demo-e3b\` vencido + \`aurora\`); jamás fotos de clientes.
