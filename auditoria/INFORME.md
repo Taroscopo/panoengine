@@ -231,3 +231,127 @@ Orden: «antes de tocar nada, propón qué cabeceras pondrías y cómo se compor
 **`pnpm verify` tras el cambio (literal, exit 0 — 87 tests: schema 23, edge-viewer 26, web 16, server 22):**
 
 ```text
+$ pnpm -r --if-present typecheck && pnpm -r --if-present test && pnpm lint && pnpm -r --if-present build
+packages/schema typecheck$ tsc -p tsconfig.json
+packages/schema typecheck: Done
+apps/studio-local/server typecheck$ tsc -p tsconfig.json
+apps/edge-viewer typecheck$ tsc -p tsconfig.worker.json && tsc -p tsconfig.viewer.json
+apps/studio-local/web typecheck$ tsc -p tsconfig.json
+apps/studio-local/server typecheck: Done
+apps/studio-local/web typecheck: Done
+apps/edge-viewer typecheck: Done
+Scope: 4 of 5 workspace projects
+packages/schema test$ vitest run
+packages/schema test: 
+packages/schema test:  RUN  v3.2.7 /home/leo/Música/360 MOTOR TOURS/packages/schema
+packages/schema test: 
+packages/schema test:  ✓ test/fov.test.ts (7 tests) 3ms
+packages/schema test:  ✓ test/constants.test.ts (4 tests) 4ms
+packages/schema test:  ✓ test/tour.test.ts (12 tests) 10ms
+packages/schema test: 
+packages/schema test:  Test Files  3 passed (3)
+packages/schema test:       Tests  23 passed (23)
+packages/schema test:    Start at  01:23:51
+packages/schema test:    Duration  347ms (transform 95ms, setup 0ms, collect 159ms, tests 18ms, environment 0ms, prepare 146ms)
+packages/schema test: 
+packages/schema test: Done
+apps/edge-viewer test$ vitest run
+apps/studio-local/server test$ vitest run
+apps/studio-local/web test$ vitest run
+apps/studio-local/web test: 
+apps/studio-local/web test:  RUN  v3.2.7 /home/leo/Música/360 MOTOR TOURS/apps/studio-local/web
+apps/studio-local/web test: 
+apps/studio-local/server test: 
+apps/studio-local/server test:  RUN  v3.2.7 /home/leo/Música/360 MOTOR TOURS/apps/studio-local/server
+apps/studio-local/server test: 
+apps/edge-viewer test: 
+apps/edge-viewer test:  RUN  v3.2.7 /home/leo/Música/360 MOTOR TOURS/apps/edge-viewer
+apps/edge-viewer test: 
+apps/edge-viewer test:  ✓ test/texto.test.ts (4 tests) 3ms
+apps/edge-viewer test:  ✓ test/worker.test.ts (22 tests) 9ms
+apps/studio-local/web test:  ✓ test/mensaje-borrado.test.ts (3 tests) 3ms
+apps/edge-viewer test: 
+apps/edge-viewer test:  Test Files  2 passed (2)
+apps/edge-viewer test:       Tests  26 passed (26)
+apps/edge-viewer test:    Start at  01:23:51
+apps/edge-viewer test:    Duration  753ms (transform 184ms, setup 0ms, collect 193ms, tests 12ms, environment 0ms, prepare 319ms)
+apps/edge-viewer test: 
+apps/studio-local/web test:  ✓ test/estado-tour.test.ts (7 tests) 13ms
+apps/studio-local/web test:  ✓ test/vista.test.ts (6 tests) 5ms
+apps/studio-local/web test: 
+apps/studio-local/web test:  Test Files  3 passed (3)
+apps/studio-local/web test:       Tests  16 passed (16)
+apps/studio-local/web test:    Start at  01:23:51
+apps/studio-local/web test:    Duration  923ms (transform 267ms, setup 0ms, collect 358ms, tests 21ms, environment 1ms, prepare 450ms)
+apps/studio-local/web test: 
+apps/studio-local/server test:  ✓ test/store-miniatura.test.ts (1 test) 11ms
+apps/edge-viewer test: Done
+apps/studio-local/web test: Done
+apps/studio-local/server test:  ✓ test/r2.test.ts (6 tests) 145ms
+apps/studio-local/server test: stderr | test/borrar-escena-error.test.ts > punto 1: fs.rm falla al borrar escena — sin 500, con aviso y tour ya guardado > responde 200 + aviso de carpeta no borrada, y el tour.json ya no contiene la escena
+apps/studio-local/server test: [borrar escena] no se pudo eliminar la carpeta dist de 01M5RMFA11A000000000000000: EACCES simulado: rm bloqueado
+apps/studio-local/server test: 
+apps/studio-local/server test:  ✓ test/borrar-escena-error.test.ts (1 test) 64ms
+apps/studio-local/server test:  ✓ test/app.test.ts (9 tests) 2412ms
+apps/studio-local/server test:    ✓ borrar escena (A4) y relación 2:1 estricta (A6) > admite 2:1 exacto del X5 (11904×5952) y al borrar la escena elimina su carpeta dist/  2149ms
+apps/studio-local/server test:  ✓ test/tiler.test.ts (5 tests) 3233ms
+apps/studio-local/server test:    ✓ cortador sharp (imagen sintética) > la pirámide genera exactamente 168 tiles con las dimensiones de nivel correctas  2997ms
+apps/studio-local/server test: 
+apps/studio-local/server test:  Test Files  5 passed (5)
+apps/studio-local/server test:       Tests  22 passed (22)
+apps/studio-local/server test:    Start at  01:23:51
+apps/studio-local/server test:    Duration  4.24s (transform 603ms, setup 0ms, collect 1.50s, tests 5.87s, environment 1ms, prepare 887ms)
+apps/studio-local/server test: 
+apps/studio-local/server test: Done
+$ biome check .
+Checked 81 files in 32ms. No fixes applied.
+packages/schema build$ tsc -p tsconfig.json
+packages/schema build: Done
+apps/edge-viewer build$ pnpm build:viewer && tsc -p tsconfig.worker.json && wrangler deploy --dry-run --outdir dist-worker
+apps/studio-local/server build$ tsc -p tsconfig.json
+apps/studio-local/web build$ vite build
+apps/edge-viewer build: $ vite build
+apps/edge-viewer build: vite v7.3.7 building client environment for production...
+apps/studio-local/web build: vite v7.3.7 building client environment for production...
+apps/edge-viewer build: transforming...
+apps/studio-local/web build: transforming...
+apps/edge-viewer build: ✓ 40 modules transformed.
+apps/edge-viewer build: rendering chunks...
+apps/edge-viewer build: computing gzip size...
+apps/edge-viewer build: ../dist-viewer/index.html                   1.04 kB │ gzip:   0.49 kB
+apps/edge-viewer build: ../dist-viewer/assets/index-CXpuqP9x.css   18.42 kB │ gzip:   4.36 kB
+apps/edge-viewer build: ../dist-viewer/assets/index-DgmAIHwU.js   803.20 kB │ gzip: 211.47 kB
+apps/edge-viewer build: 
+apps/edge-viewer build: (!) Some chunks are larger than 500 kB after minification. Consider:
+apps/edge-viewer build: - Using dynamic import() to code-split the application
+apps/edge-viewer build: - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+apps/edge-viewer build: - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+apps/edge-viewer build: ✓ built in 1.63s
+apps/studio-local/server build: Done
+apps/studio-local/web build: ✓ 67 modules transformed.
+apps/studio-local/web build: rendering chunks...
+apps/studio-local/web build: computing gzip size...
+apps/studio-local/web build: dist/index.html                   0.40 kB │ gzip:   0.28 kB
+apps/studio-local/web build: dist/assets/index-CN4Q_QaX.css   28.70 kB │ gzip:   6.77 kB
+apps/studio-local/web build: dist/assets/index-KY3OX36t.js   989.60 kB │ gzip: 269.93 kB
+apps/studio-local/web build: 
+apps/studio-local/web build: (!) Some chunks are larger than 500 kB after minification. Consider:
+apps/studio-local/web build: - Using dynamic import() to code-split the application
+apps/studio-local/web build: - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+apps/studio-local/web build: - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+apps/studio-local/web build: ✓ built in 2.13s
+apps/studio-local/web build: Done
+apps/edge-viewer build: 
+apps/edge-viewer build:  ⛅️ wrangler 4.151.1 (update available 4.151.2)
+apps/edge-viewer build: ───────────────────────────────────────────────
+apps/edge-viewer build: ✨ Read 4 files from the assets directory /home/leo/Música/360 MOTOR TOURS/apps/edge-viewer/dist-viewer
+apps/edge-viewer build: Total Upload: 204.01 KiB / gzip: 41.02 KiB
+apps/edge-viewer build: Your Worker has access to the following bindings:
+apps/edge-viewer build: Binding                            Resource       
+apps/edge-viewer build: env.TOURS (panoengine-tours)       R2 Bucket      
+apps/edge-viewer build: env.ASSETS                         Assets         
+apps/edge-viewer build: 
+apps/edge-viewer build: --dry-run: exiting now.
+apps/edge-viewer build: Done
+VERIFY_EXIT=0
+```
