@@ -156,6 +156,7 @@ apps/edge-viewer build:
 apps/edge-viewer build: --dry-run: exiting now.
 apps/edge-viewer build: Done
 VERIFY_EXIT=0
+```
 \`\`\`
 
 - **Exit:** 0. **Tests:** 87 (schema 23, edge-viewer 26, web 16, server 22). **Biome:** 0 errores, 0 avisos (el aviso histórico del parámetro \`tour\` quedó resuelto).
