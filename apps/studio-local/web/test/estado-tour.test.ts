@@ -39,11 +39,11 @@ describe('textoVence (E2)', () => {
   });
 });
 
-describe('pasaFiltro (E2)', () => {
-  it('vencido solo aparece en Todos', () => {
+describe('pasaFiltro (E2 · vencidos en Por vencer, decisión del propietario)', () => {
+  it('vencido cuenta en «Por vencer» y en «Todos»; no en «Activos» ni «Suspendidos»', () => {
     expect(pasaFiltro('vencido', 'todos')).toBe(true);
+    expect(pasaFiltro('vencido', 'por-vencer')).toBe(true);
     expect(pasaFiltro('vencido', 'activos')).toBe(false);
-    expect(pasaFiltro('vencido', 'por-vencer')).toBe(false);
     expect(pasaFiltro('vencido', 'suspendidos')).toBe(false);
   });
 

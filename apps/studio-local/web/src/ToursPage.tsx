@@ -56,7 +56,9 @@ export function ToursPage({ onAbrir, onCrear }: Props): React.JSX.Element {
     }
     if (contadores['por-vencer'] > 0) {
       partes.push(
-        `${contadores['por-vencer']} ${contadores['por-vencer'] === 1 ? 'vence pronto' : 'vencen pronto'}`,
+        contadores['por-vencer'] === 1
+          ? '1 vence pronto o venció'
+          : `${contadores['por-vencer']} vencen pronto o vencieron`,
       );
     }
     if (contadores.suspendidos > 0) {
@@ -223,7 +225,13 @@ export function ToursPage({ onAbrir, onCrear }: Props): React.JSX.Element {
                         Editado {new Date(tour.updatedAt).toLocaleDateString('es')}
                         {vence !== null && (
                           <span
-                            className={estado === 'por-vencer' || estado === 'vencido' ? ' text-ambar' : ''}
+                            className={
+                              estado === 'vencido'
+                                ? ' text-rojo'
+                                : estado === 'por-vencer'
+                                  ? ' text-ambar'
+                                  : ''
+                            }
                           >
                             {' '}
                             · {vence}

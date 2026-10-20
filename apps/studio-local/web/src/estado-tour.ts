@@ -62,7 +62,7 @@ export const FILTROS = [
 
 export type FiltroLista = (typeof FILTROS)[number]['id'];
 
-/** ¿Pasa el tour por el filtro? («vencido» solo aparece en Todos). */
+/** ¿Pasa el tour por el filtro? «vencido» cuenta en Por vencer y en Todos (decisión del propietario). */
 export function pasaFiltro(estado: EstadoTour, filtro: FiltroLista): boolean {
   switch (filtro) {
     case 'todos':
@@ -70,7 +70,7 @@ export function pasaFiltro(estado: EstadoTour, filtro: FiltroLista): boolean {
     case 'activos':
       return estado === 'activo';
     case 'por-vencer':
-      return estado === 'por-vencer';
+      return estado === 'por-vencer' || estado === 'vencido';
     case 'suspendidos':
       return estado === 'suspendido';
   }
