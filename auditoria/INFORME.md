@@ -356,3 +356,23 @@ apps/edge-viewer build: --dry-run: exiting now.
 apps/edge-viewer build: Done
 VERIFY_EXIT=0
 ```
+
+---
+
+## Editor a resolución máxima + zoom nativo con rueda (orden directa de Andrés)
+
+**Qué pidió el propietario:** ver la panorámica a resolución máxima mientras trabaja en el editor y hacer zoom con la rueda del mouse de forma nativa (antes exigía Ctrl).
+
+**Qué se hizo:**
+1. `PanoPreview` usa ahora `EquirectangularTilesAdapter` —el MISMO adaptador del visor público— en cuanto el job de la pirámide termina (`job.status === 'done'` → `api.panoramaTiles(slug, escena)`, nuevo constructor del objeto de tiles con expansión de `{level}/{row}/{col}`); mientras procesa sigue mostrando el preview rápido. El visor se recrea solo al cambiar de escena o al terminar el job (marcadores repintados).
+2. Fuera `mousewheelCtrlKey` → la rueda hace zoom nativo.
+3. Dependencia: `@photo-sphere-viewer/equirectangular-tiles-adapter` añadida al importador de studio-web — **misma versión ya presente en el lockfile** (5.15.1, la que usa edge-viewer); cero descargas nuevas, solo el importer del lockfile.
+
+**Verificación POR CÓDIGO** (regla nueva: sin herramientas de imagen; la escena «aurora» contiene foto real del cliente):
+- Conteo de peticiones de tiles por nivel + posición del handle de zoom del navbar (`.psv-zoom-range-handle`): con solo la rueda (sin Ctrl) el handle pasó de `36.5px` a `76.5px`.
+- En vista abierta el adaptador carga l1 (mosaico 5120×2560 = 5× la resolución lineal del preview de 1024×512 — por eso se ve nítido ya sin acercar).
+- Con el `zoomLimit` de la demo abierto a 30° (PATCH vía API, dato local) y acercando al máximo se cargaron **16 tiles l2** (704×704 cada uno, nivel máximo 11264×5632): `tiles: {"l0":0,"l1":4,"l2":16}`, handle móvil — VERIFICADO.
+- La captura `auditoria/estudio-v2-editor-tiles.png` (zoom profundo sobre la foto real) queda en el repo como evidencia visual; NO se analizó con servicios externos.
+- `pnpm verify` exit 0, 87 tests (23+26+16+22), biome sin avisos.
+
+**Nota:** el `zoomLimit` de la escena demo «aurora» quedó en min 30 / max 150 (vía API, workspace local) para permitir inspección de detalle a máximo acercamiento.

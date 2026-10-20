@@ -1,4 +1,5 @@
-import { Viewer } from '@photo-sphere-viewer/core';
+import { Viewer, type ViewerConfig } from '@photo-sphere-viewer/core';
+import { EquirectangularTilesAdapter } from '@photo-sphere-viewer/equirectangular-tiles-adapter';
 import { MarkersPlugin } from '@photo-sphere-viewer/markers-plugin';
 import '@photo-sphere-viewer/core/index.css';
 import '@photo-sphere-viewer/markers-plugin/index.css';
@@ -8,6 +9,11 @@ import { type LimitesFov, type VistaGrados, vistaAGrados } from './vista.js';
 
 interface Props {
   previewUrl: string;
+  /**
+   * Panorama de tiles de máxima resolución (api.panoramaTiles) cuando el job de
+   * la pirámide terminó; null mientras procesa → se muestra el preview rápido.
+   */
+  panoTiles: Record<string, unknown> | null;
   hotspots: Hotspot[];
   hotspotSeleccionado: string | null;
   modoAgregar: 'nav' | 'info' | 'link' | null;
@@ -35,22 +41,35 @@ export function PanoPreview(props: Props): React.JSX.Element {
   const callbacks = useRef(props);
   callbacks.current = props;
 
-  // (Re)crear el visor al cambiar de escena.
+  // (Re)crear el visor al cambiar de escena o al terminar el job de tiles
+  // (null → objeto): con tiles pinta a resolución MÁXIMA (orden del
+  // propietario); sin tiles, el preview rápido mientras procesa.
+  const conTiles = props.panoTiles !== null;
   // biome-ignore lint/correctness/useExhaustiveDependencies: limitesZoom NO recrea el visor; se aplica en vivo con setOptions en el efecto dedicado
   useEffect(() => {
     if (!contenedor.current) {
       return;
     }
-    const viewer = new Viewer({
+    const comun: ViewerConfig = {
       container: contenedor.current,
-      panorama: props.previewUrl,
       navbar: ['zoom', 'move', 'fullscreen'],
       lang: { zoom: 'Zoom', move: 'Mover', fullscreen: 'Pantalla completa', loading: 'Cargando…' },
-      mousewheelCtrlKey: true,
+      // Sin mousewheelCtrlKey: zoom nativo con la rueda del mouse (orden del propietario).
       minFov: props.limitesZoom.minFov,
       maxFov: props.limitesZoom.maxFov,
       plugins: [[MarkersPlugin, { clickEventOnMarker: true }]],
-    });
+    };
+    const viewer = new Viewer(
+      conTiles
+        ? {
+            ...comun,
+            adapter: [EquirectangularTilesAdapter, { showErrorTile: false }],
+            // El adaptador de tiles consume el objeto {baseUrl, width, cols, rows,
+            // levels, tileUrl}; el tipo string es el del adaptador por defecto.
+            panorama: props.panoTiles as unknown as string,
+          }
+        : { ...comun, panorama: props.previewUrl },
+    );
     viewerRef.current = viewer;
     markersRef.current = viewer.getPlugin<MarkersPlugin>(MarkersPlugin);
 
@@ -82,7 +101,7 @@ export function PanoPreview(props: Props): React.JSX.Element {
       viewerRef.current = null;
       markersRef.current = null;
     };
-  }, [props.previewUrl]);
+  }, [props.previewUrl, conTiles]);
 
   // Al cambiar el zoomLimit de la escena (panel Avanzado) el visor del editor
   // adopta en vivo los mismos límites que tendrá el visor público (WYSIWYG).
@@ -94,8 +113,9 @@ export function PanoPreview(props: Props): React.JSX.Element {
   }, [props.limitesZoom.minFov, props.limitesZoom.maxFov]);
 
   // Refrescar marcadores cuando cambian los hotspots o la selección.
-  // previewUrl es dependencia deliberada: al recrear el visor hay que repintar los
-  // marcadores sobre la nueva instancia del plugin.
+  // previewUrl y conTiles son dependencias deliberadas: al recrear el visor
+  // (cambio de escena o fin del job de tiles) hay que repintar los marcadores
+  // sobre la nueva instancia del plugin.
   // biome-ignore lint/correctness/useExhaustiveDependencies: dependencia intencional
   useEffect(() => {
     const markers = markersRef.current;
@@ -111,7 +131,7 @@ export function PanoPreview(props: Props): React.JSX.Element {
         ...(h.title ? { tooltip: { content: h.title, position: 'top center' } } : {}),
       })),
     );
-  }, [props.hotspots, props.hotspotSeleccionado, props.previewUrl]);
+  }, [props.hotspots, props.hotspotSeleccionado, props.previewUrl, conTiles]);
 
   const usarVistaInicio = (): void => {
     const viewer = viewerRef.current;

@@ -81,4 +81,29 @@ export const api = {
   archivoEscena(slug: string, scene: Scene, archivo: 'preview.webp' | 'thumb.webp'): string {
     return `/files/tours/${slug}/dist/tours/${slug}/scenes/${scene.id}-${scene.revHash}/${archivo}`;
   },
+  /**
+   * Panorama de tiles de máxima resolución para el editor (mismo contrato que
+   * consume el visor público con EquirectangularTilesAdapter). El preview.webp
+   * queda como baseUrl (fondo mientras cargan los tiles).
+   */
+  panoramaTiles(slug: string, scene: Scene): Record<string, unknown> {
+    const raiz = `/files/tours/${slug}/dist/tours/${slug}`;
+    return {
+      baseUrl: `/files/tours/${slug}/dist/tours/${slug}/scenes/${scene.id}-${scene.revHash}/preview.webp`,
+      width: scene.tiles.width,
+      cols: scene.tiles.cols,
+      rows: scene.tiles.rows,
+      levels: scene.tiles.levels.map((l) => ({ width: l.width, cols: l.cols, rows: l.rows })),
+      tileUrl: (col: number, row: number, level: number): string | null => {
+        const nivel = scene.tiles.levels[level];
+        if (!nivel || col >= nivel.cols || row >= nivel.rows) {
+          return null;
+        }
+        return `${raiz}/${scene.tiles.tileUrlTemplate
+          .replaceAll('{level}', String(level))
+          .replaceAll('{row}', String(row))
+          .replaceAll('{col}', String(col))}`;
+      },
+    };
+  },
 };

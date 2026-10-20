@@ -411,6 +411,7 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
                 <div className="h-full overflow-hidden rounded-tarjeta border border-linea">
                   <PanoPreview
                     previewUrl={api.archivoEscena(slug, escena, 'preview.webp')}
+                    panoTiles={jobDeEscena?.status === 'done' ? api.panoramaTiles(slug, escena) : null}
                     hotspots={escena.hotspots}
                     hotspotSeleccionado={hotspotSel}
                     modoAgregar={modoAgregar}
