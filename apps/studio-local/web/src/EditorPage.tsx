@@ -196,6 +196,9 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
     await guardarEscena({ hotspots: [...escena.hotspots, nuevo] });
     setHotspotSel(nuevo.id);
     setModoAgregar(null);
+    // El panel pasa directo a editar el punto recién creado (hallado por el
+    // testeo E2E del 2026-10-20: antes se quedaba en «Escena»).
+    setPanelDerecho('punto');
   };
 
   const actualizarHotspot = async (id: string, cambios: Partial<Hotspot>): Promise<void> => {

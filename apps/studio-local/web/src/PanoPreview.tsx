@@ -5,7 +5,13 @@ import '@photo-sphere-viewer/core/index.css';
 import '@photo-sphere-viewer/markers-plugin/index.css';
 import type { Hotspot } from '@panoengine/schema';
 import { useEffect, useRef } from 'react';
-import { type LimitesFov, type VistaGrados, vistaAGrados } from './vista.js';
+import {
+  type LimitesFov,
+  radAAlturaGrados,
+  radANormalizadoGiroGrados,
+  type VistaGrados,
+  vistaAGrados,
+} from './vista.js';
 
 interface Props {
   previewUrl: string;
@@ -31,8 +37,6 @@ const ICONOS: Record<Hotspot['type'], string> = {
   info: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>',
   link: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>',
 };
-
-const RAD2DEG = 180 / Math.PI;
 
 export function PanoPreview(props: Props): React.JSX.Element {
   const contenedor = useRef<HTMLDivElement>(null);
@@ -76,7 +80,10 @@ export function PanoPreview(props: Props): React.JSX.Element {
     viewer.addEventListener('click', (e) => {
       const { modoAgregar, onAgregar } = callbacks.current;
       if (modoAgregar) {
-        onAgregar(e.data.yaw * RAD2DEG, e.data.pitch * RAD2DEG);
+        // PSV puede devolver yaw en [0, 2π] (p. ej. 360°) o pitch fuera de ±90:
+        // sin normalizar, el punto cae fuera del rango del schema y el PATCH
+        // rebota con 400 (bug hallado por el testeo E2E del 2026-10-20).
+        onAgregar(radANormalizadoGiroGrados(e.data.yaw), radAAlturaGrados(e.data.pitch));
       }
     });
     markersRef.current.addEventListener('select-marker', (e) => {

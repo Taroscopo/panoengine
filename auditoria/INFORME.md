@@ -391,3 +391,17 @@ VERIFY_EXIT=0
 **Verificación POR CÓDIGO** (regla nueva: la escena contiene fotos reales del cliente; sin herramientas de imagen): en Chromium real contra el tour «aurora» del propietario — crear grupo y renombrarlo inline (PATCH groups → 200, «Piso 1»), arrastre con eventos HTML5 nativos (DataTransfer) moviendo una escena a «Piso 1» (PATCH sceneOrder → 200, `groupId` persistido en tour.json), Escape en el renombrado de escena sin cambios, botón «Sustituir» presente con su título. El tour del propietario se revirtió EXACTAMENTE a su estado anterior tras la prueba (groups [], 5 escenas). Captura `auditoria/estudio-v2-grupos.png`.
 
 **`pnpm verify` completo: exit 0 — 103 tests** (schema 27, edge-viewer 26, web 21, server 29), biome 0 errores 0 avisos. Nota: durante la verificación se detectó que un proceso de servidor viejo (schema anterior) sobrevivía a los reinicios y causaba un `groups: AUSENTE`; se reinició de verdad y todo respondió. Los grupos son SOLO organización del editor: el visor público no cambia (ordena por tour.scenes, que ya refleja los grupos).
+
+---
+
+## Testeo E2E completo del editor (orden de Andrés) — 2 bugs reales hallados y corregidos
+
+**Metodología:** contra un CLON del tour real del propietario («prueba-e2e», fotos reales, borrado al terminar) para no pisar su edición en vivo; verificación por código (API + DOM + peticiones), sin herramientas de imagen externas; reversión exacta a la línea base al final.
+
+**Flujo verificado (TODO VERDE):** crear 2 grupos y renombrarlos inline · arrastrar escenas entre grupos (inserción ENCIMA de otra escena incluida) con persistencia del orden global real · plegar/desplegar grupos · añadir punto «Ir a otra escena» con un clic en la panorámica · editar título, destino, giro/altura/zoom de llegada (25°/-5°/60°) y transición · zoom nativo con rueda · rotar la vista y guardarla como inicial («Vista inicial guardada» + defaultView persistido) · renombrar escena desde la lista · añadir punto de información · eliminar punto. Capturas: `estudio-v2-e2e-punto.png` y `estudio-v2-e2e-grupos.png`.
+
+**Bug 1 (corregido):** al añadir un punto con clic, PSV puede devolver yaw fuera de (−180,180] (p. ej. 360°) o pitch fuera de ±90; `PanoPreview` lo multiplicaba crudo y el PATCH rebotaba con 400 «Cuerpo de escena inválido» → el punto NO se creaba (intermitente según dónde cayera el clic). Fix: usar los normalizadores ya testeados `radANormalizadoGiroGrados`/`radAAlturaGrados` de `vista.ts`.
+
+**Bug 2 (corregido):** tras crear un punto, el panel derecho seguía en «Escena» en vez de pasar a «Editando punto». Fix: `setPanelDerecho('punto')` al crearlo.
+
+`pnpm verify` tras ambos fixes: exit 0, 103 tests, biome limpio.
