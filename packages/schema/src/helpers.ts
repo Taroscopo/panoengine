@@ -83,6 +83,7 @@ export function newTour(input: NewTourInput): TourDraft {
     updatedAt: now,
     autoRotate: { enabled: false, waitTimeMs: 4000, speedDegPerSec: 2 },
     littlePlanetIntro: false,
+    groups: [],
     scenes: [],
     plugins: {},
   };

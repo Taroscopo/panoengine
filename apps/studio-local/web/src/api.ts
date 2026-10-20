@@ -68,6 +68,20 @@ export const api = {
       await fetch(`/api/tours/${slug}/scenes/${sceneId}`, { method: 'DELETE' }),
     );
   },
+  /** Sustituye la FOTO de una escena conservando id, nombre, grupo y puntos. */
+  async sustituirEscena(
+    slug: string,
+    sceneId: string,
+    archivo: File,
+  ): Promise<{ scene: Scene; nota?: string; quick: { warnings: string[] } }> {
+    const form = new FormData();
+    form.append('file', archivo);
+    const res = await fetch(`/api/tours/${slug}/scenes/${sceneId}/replace`, {
+      method: 'POST',
+      body: form,
+    });
+    return json(res);
+  },
   async publicar(slug: string): Promise<{
     ok: boolean;
     stats?: { uploaded: number; skipped: number; deleted: number; errors: string[] };

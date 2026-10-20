@@ -376,3 +376,18 @@ VERIFY_EXIT=0
 - `pnpm verify` exit 0, 87 tests (23+26+16+22), biome sin avisos.
 
 **Nota:** el `zoomLimit` de la escena demo «aurora» quedó en min 30 / max 150 (vía API, workspace local) para permitir inspección de detalle a máximo acercamiento.
+
+---
+
+## Grupos, arrastre, renombrado y sustitución de panorámicas (orden directa de Andrés)
+
+**Qué pidió el propietario:** crear grupos de imágenes (p. ej. 5 en un grupo, 5 en otro), arrastrar cada panorámica para posicionarla, editar su nombre fácilmente y un botón para sustituirla por otra foto.
+
+**Qué se construyó:**
+1. **Schema** (sin bump de `schemaVersion`): `tour.groups` opcional (`{id ULID, nombre}`, default `[]` — los tour.json viejos migran igual) y `scene.groupId` opcional; el contrato publicado valida que cada `groupId` corresponda a un grupo existente. Tests: tour nuevo nace con `groups: []`, migración de v1 sin groups, grupo+groupId coherentes, groupId huérfano rechazado.
+2. **Servidor**: `PATCH /api/tours/:slug` acepta `groups` (lista que sustituye; ids sin duplicar) y `sceneOrder` (permutación EXACTA de las escenas actuales con su grupo destino; null = sin grupo) — tests de reordenación, 400 por repetición/falta/groupId inexistente, y borrado de grupo mandando sus escenas a «Sin grupo». Nueva ruta `POST /api/tours/:slug/scenes/:sceneId/replace`: valida JPG real ≥4000px 2:1 como la subida, respalda el master (rollback si la fase rápida falla), re-tilea en carpeta de revisión NUEVA, conserva **id, nombre, grupo, puntos, vista y límites**, re-extrae GPS, limpia la carpeta de la revisión vieja (patrón del DELETE) y avisa si no puede. Tests: conserva todo + cambia revHash + limpia revisión vieja; 415 con no-JPG; 404 escena inexistente.
+3. **Editor (columna izquierda, nuevo componente `ListaEscenas`)**: grupos plegables con «Nuevo grupo» (nace en edición de nombre), renombrado de grupo (clic en el nombre), borrado de grupo (sus escenas pasan a «Sin grupo», con aviso), contador por grupo; **arrastrar y soltar** HTML5 con destino resaltado (fila = insertar encima; cabecera/zona vacía = al final del grupo) que persiste el orden global real; **renombrado inline** de escenas (lápiz o doble flujo, Enter guarda / Escape cancela); **botón «Sustituir»** (icono intercambiar) que abre el selector de archivo y sustituye conservando los puntos; accesibilidad pedida por biome (nombres de grupo como botones, selección de escena en botón con `aria-current`, suppressions justificadas solo para autoFocus del renombrado y objetivos de drop).
+
+**Verificación POR CÓDIGO** (regla nueva: la escena contiene fotos reales del cliente; sin herramientas de imagen): en Chromium real contra el tour «aurora» del propietario — crear grupo y renombrarlo inline (PATCH groups → 200, «Piso 1»), arrastre con eventos HTML5 nativos (DataTransfer) moviendo una escena a «Piso 1» (PATCH sceneOrder → 200, `groupId` persistido en tour.json), Escape en el renombrado de escena sin cambios, botón «Sustituir» presente con su título. El tour del propietario se revirtió EXACTAMENTE a su estado anterior tras la prueba (groups [], 5 escenas). Captura `auditoria/estudio-v2-grupos.png`.
+
+**`pnpm verify` completo: exit 0 — 103 tests** (schema 27, edge-viewer 26, web 21, server 29), biome 0 errores 0 avisos. Nota: durante la verificación se detectó que un proceso de servidor viejo (schema anterior) sobrevivía a los reinicios y causaba un `groups: AUSENTE`; se reinició de verdad y todo respondió. Los grupos son SOLO organización del editor: el visor público no cambia (ordena por tour.scenes, que ya refleja los grupos).

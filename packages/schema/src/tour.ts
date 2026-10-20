@@ -10,6 +10,13 @@ export const autoRotateSchema = z.object({
   speedDegPerSec: z.number().min(0.1).max(30).default(2),
 });
 
+/** Grupo de escenas del editor (p. ej. «Piso 1»): opcional, orden = orden del array. */
+export const sceneGroupSchema = z.object({
+  id: ulidSchema,
+  name: z.string().min(1).max(120),
+});
+export type SceneGroup = z.infer<typeof sceneGroupSchema>;
+
 /** Borrador de edición: puede tener 0 escenas mientras se construye el tour. */
 export const tourDraftSchema = z.object({
   schemaVersion: z.literal(1),
@@ -29,6 +36,8 @@ export const tourDraftSchema = z.object({
   defaultSceneId: ulidSchema.optional(),
   autoRotate: autoRotateSchema,
   littlePlanetIntro: z.boolean().default(false),
+  /** Grupos opcionales del editor: los tours sin grupos (o viejos) quedan en []. */
+  groups: z.array(sceneGroupSchema).default([]),
   scenes: z.array(sceneSchema),
   plugins: z.record(z.string(), z.unknown()).default({}),
 });
@@ -64,6 +73,13 @@ export const tourSchema = tourDraftSchema.superRefine((tour, ctx) => {
       });
     }
     ids.add(scene.id);
+    if (scene.groupId !== undefined && !tour.groups.some((g) => g.id === scene.groupId)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['scenes', index, 'groupId'],
+        message: `groupId no corresponde a ningún grupo: ${scene.groupId}`,
+      });
+    }
   }
 });
 export type Tour = z.infer<typeof tourSchema>;

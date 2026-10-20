@@ -160,6 +160,8 @@ export type SphereCorrectionDeg = z.infer<typeof sphereCorrectionSchema>;
 export const sceneSchema = z.object({
   id: ulidSchema,
   name: z.string().min(1).max(120),
+  /** Grupo del editor (tour.groups[].id); ausente = sin grupo. Solo organiza el estudio. */
+  groupId: ulidSchema.optional(),
   /** Hash corto del contenido de los tiles: cambia al re-tilear (carpeta nueva). */
   revHash: z.string().regex(/^[0-9a-f]{10}$/),
   tiles: tilesDescriptorSchema,

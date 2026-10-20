@@ -1,6 +1,6 @@
 import type { Hotspot, Scene, Tour } from '@panoengine/schema';
 import { zoomLimitToPsv } from '@panoengine/schema';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ulid } from 'ulid';
 import { api, type SceneJob } from './api.js';
 import { Boton } from './componentes/Boton.js';
@@ -9,6 +9,7 @@ import { Icono } from './componentes/Icono.js';
 import { Insignia } from './componentes/Insignia.js';
 import { Pestanas } from './componentes/Pestanas.js';
 import { Segmentado } from './componentes/Segmentado.js';
+import { ListaEscenas } from './ListaEscenas.js';
 import { avisoBorradoDist } from './mensaje-borrado.js';
 import { PanoPreview } from './PanoPreview.js';
 import type { VistaGrados } from './vista.js';
@@ -33,7 +34,6 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
   const [pestana, setPestana] = useState<'editor' | 'contacto' | 'ajustes'>('editor');
   const [panelDerecho, setPanelDerecho] = useState<'escena' | 'punto'>('escena');
   const [vistaActual, setVistaActual] = useState<VistaGrados | null>(null);
-  const archivoRef = useRef<HTMLInputElement>(null);
 
   const recargar = useCallback(async (): Promise<void> => {
     const res = await api.leerTour(slug);
@@ -147,9 +147,6 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
       });
     } finally {
       setSubiendo(false);
-      if (archivoRef.current) {
-        archivoRef.current.value = '';
-      }
     }
   };
 
@@ -317,63 +314,33 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
         >
           {/* ---------- Columna escenas ---------- */}
           <aside className="flex min-h-0 flex-col border-r border-linea bg-panel">
-            <div className="border-b border-linea p-3">
-              <input
-                ref={archivoRef}
-                type="file"
-                accept="image/jpeg"
-                multiple
-                className="hidden"
-                onChange={(e) => void subir(e.target.files)}
-              />
-              <Boton
-                variante="secundario"
-                icono="subir"
-                disabled={subiendo}
-                className="w-full"
-                onClick={() => archivoRef.current?.click()}
-              >
-                {subiendo ? 'Procesando…' : 'Subir panorámicas 360°'}
-              </Boton>
-            </div>
-            <ul className="min-h-0 flex-1 overflow-y-auto p-2">
-              {tour.scenes.map((s) => {
-                const job = jobs.find((j) => j.sceneId === s.id);
-                const enCurso = job !== undefined && (job.status === 'running' || job.status === 'queued');
-                const porcentaje = job && job.total > 0 ? Math.round((job.done / job.total) * 100) : 0;
-                return (
-                  <li key={s.id}>
-                    <button
-                      type="button"
-                      className={`mb-1.5 flex w-full items-center gap-2.5 rounded-control border p-2 text-left transition-colors ${
-                        s.id === escenaId ? 'border-azul bg-azul/10' : 'border-transparent hover:bg-tarjeta'
-                      }`}
-                      onClick={() => {
-                        setEscenaId(s.id);
-                        setHotspotSel(null);
-                        setPanelDerecho('escena');
-                      }}
-                    >
-                      <img
-                        src={api.archivoEscena(slug, s, 'thumb.webp')}
-                        alt=""
-                        className="h-9 w-16 flex-none rounded-control border border-linea object-cover"
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium">{s.name}</span>
-                        {job?.status === 'error' ? (
-                          <span className="mt-0.5 block text-xs text-rojo">Error: {job.error}</span>
-                        ) : enCurso ? (
-                          <span className="mt-0.5 block text-xs text-ambar">Procesando… {porcentaje} %</span>
-                        ) : (
-                          <span className="mt-0.5 block text-xs text-verde">Lista</span>
-                        )}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+            <ListaEscenas
+              slug={slug}
+              tour={tour}
+              jobs={jobs}
+              escenaId={escenaId}
+              subiendo={subiendo}
+              onSubir={(archivos) => void subir(archivos)}
+              onSeleccionar={(id) => {
+                setEscenaId(id);
+                setHotspotSel(null);
+                setPanelDerecho('escena');
+              }}
+              onTourCambiado={setTour}
+              onEscenaCambiada={(escenaActualizada) =>
+                setTour((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        scenes: prev.scenes.map((s) =>
+                          s.id === escenaActualizada.id ? escenaActualizada : s,
+                        ),
+                      }
+                    : prev,
+                )
+              }
+              onMensaje={(texto, tipo) => setMensaje({ texto, tipo })}
+            />
           </aside>
 
           {/* ---------- Vista 360° ---------- */}

@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import {
   autoRotateSchema,
+  createTilesDescriptor,
   defaultViewSchema,
   gsvSchema,
   hotspotSchema,
@@ -62,6 +63,24 @@ const patchTourBody = z.object({
   defaultSceneId: ulidSchema.nullable().optional(),
   autoRotate: autoRotateSchema.partial().optional(),
   littlePlanetIntro: z.boolean().optional(),
+  /** Gestión de grupos del editor: lista completa de grupos (sustituye la actual). */
+  groups: z
+    .array(
+      z.object({
+        id: ulidSchema,
+        name: z.string().min(1).max(120),
+      }),
+    )
+    .optional(),
+  /** Orden y agrupación de escenas: permutación EXACTA de los id actuales. */
+  sceneOrder: z
+    .array(
+      z.object({
+        id: ulidSchema,
+        groupId: ulidSchema.nullable(),
+      }),
+    )
+    .optional(),
 });
 
 const patchSceneBody = z.object({
@@ -160,6 +179,47 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
       draft.autoRotate = autoRotateSchema.parse({ ...draft.autoRotate, ...body.autoRotate });
     }
     if (body.littlePlanetIntro !== undefined) draft.littlePlanetIntro = body.littlePlanetIntro;
+    if (body.groups !== undefined) {
+      const gruposNuevos = body.groups;
+      if (new Set(gruposNuevos.map((g) => g.id)).size !== gruposNuevos.length) {
+        return reply.code(400).send(errorReply('Grupos con id duplicado'));
+      }
+      draft.groups = gruposNuevos;
+    }
+    if (body.sceneOrder !== undefined) {
+      // Permutación exacta: mismos id, sin repetir, sin faltantes.
+      const actuales = draft.scenes.map((s) => s.id);
+      const llegan = body.sceneOrder.map((o) => o.id);
+      if (
+        llegan.length !== actuales.length ||
+        new Set(llegan).size !== llegan.length ||
+        !llegan.every((id) => actuales.includes(id))
+      ) {
+        return reply
+          .code(400)
+          .send(errorReply('sceneOrder debe contener exactamente las escenas actuales, sin repetir'));
+      }
+      const porId = new Map(draft.scenes.map((s) => [s.id, s]));
+      const gruposValidos = new Set(draft.groups.map((g) => g.id));
+      for (const orden of body.sceneOrder) {
+        const escena = porId.get(orden.id);
+        if (!escena) {
+          continue; // cubierto por la validación de permutación
+        }
+        if (orden.groupId !== null && !gruposValidos.has(orden.groupId)) {
+          return reply.code(400).send(errorReply(`El grupo ${orden.groupId} no existe en este tour`));
+        }
+      }
+      draft.scenes = body.sceneOrder.map((orden) => {
+        const escena = porId.get(orden.id) as (typeof draft.scenes)[number];
+        if (orden.groupId === null) {
+          delete escena.groupId;
+        } else {
+          escena.groupId = orden.groupId;
+        }
+        return escena;
+      });
+    }
 
     const validated = tourDraftSchema.safeParse(draft);
     if (!validated.success) {
@@ -332,6 +392,150 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
     }
     await store.writeTour(validated.data);
     return { scene: validated.data.scenes.find((s) => s.id === sceneId) };
+  });
+
+  // Sustituir la FOTO de una escena (orden de Andrés): conserva id, nombre,
+  // grupo, puntos, vista inicial y ajustes; solo cambian la imagen, su revHash
+  // (carpeta dist nueva), el GPS re-extraído y el reprocesado de la pirámide.
+  app.post('/api/tours/:slug/scenes/:sceneId/replace', async (req, reply) => {
+    const { slug, sceneId } = req.params as { slug: string; sceneId: string };
+    if (!paramsValidos(slug, sceneId)) {
+      return paramInvalido(reply);
+    }
+    const draft = await store.readTour(slug);
+    if (!draft) {
+      return reply.code(404).send(errorReply(`No existe el tour «${slug}»`));
+    }
+    const escena = draft.scenes.find((s) => s.id === sceneId);
+    if (!escena) {
+      return reply.code(404).send(errorReply('No existe la escena'));
+    }
+    if (queue.isRunning(slug, sceneId)) {
+      return reply
+        .code(409)
+        .send(errorReply('La escena está procesándose; espera a que termine para sustituirla'));
+    }
+    const file = await req.file({ limits: { fileSize: 90 * 1024 * 1024 } });
+    if (!file) {
+      return reply.code(400).send(errorReply('Falta el archivo del panorama'));
+    }
+    if (file.mimetype !== 'image/jpeg') {
+      return reply.code(415).send(errorReply('Solo se aceptan JPG equirectangulares del Insta360 X5'));
+    }
+    const buffer = await file.toBuffer();
+    const { default: sharp } = await import('sharp');
+    let meta: import('sharp').Metadata;
+    try {
+      meta = await sharp(buffer).metadata();
+      if (meta.format !== 'jpeg') {
+        return reply.code(415).send(errorReply('El archivo no es un JPG válido'));
+      }
+    } catch {
+      return reply.code(415).send(errorReply('El archivo no es una imagen válida'));
+    }
+    if ((meta.width ?? 0) < 4000 || (meta.height ?? 0) < 2000) {
+      return reply
+        .code(422)
+        .send(
+          errorReply(
+            `La imagen es demasiado pequeña (${meta.width}×${meta.height}); se esperaba un panorama 2:1 de al menos 4000 px de ancho`,
+          ),
+        );
+    }
+    const ratio = (meta.width ?? 1) / (meta.height ?? 1);
+    if (ratio < 1.95 || ratio > 2.05) {
+      return reply
+        .code(422)
+        .send(
+          errorReply(
+            `La imagen no es equirectangular 2:1 (relación ${ratio.toFixed(3)}:1, ${meta.width}×${meta.height}); ` +
+              'exporta el panorama 360 desde Insta360 e inténtalo de nuevo',
+          ),
+        );
+    }
+
+    const masterPath = store.masterPath(slug, sceneId);
+    const respaldoMaster = `${masterPath}.prev`;
+    const revViejo = escena.revHash;
+    const distViejo = store.distSceneDir(slug, sceneId, revViejo);
+    const warnings: string[] = [];
+
+    // Respaldo del master anterior: si la fase rápida falla, se restaura y la
+    // escena queda intacta apuntando a su revisión anterior.
+    await fs.copyFile(masterPath, respaldoMaster).catch(() => undefined);
+    await fs.writeFile(masterPath, buffer);
+
+    const revHash = await computeRevHash(masterPath);
+    const distNuevo = store.distSceneDir(slug, sceneId, revHash);
+    let quick: QuickDerivatives;
+    try {
+      quick = await generateQuickDerivatives(masterPath, distNuevo);
+    } catch (err) {
+      await fs.rm(distNuevo, { recursive: true, force: true }).catch(() => undefined);
+      await fs.rename(respaldoMaster, masterPath).catch(() => undefined);
+      return reply
+        .code(500)
+        .send(
+          errorReply(`Fallo procesando la panorámica: ${err instanceof Error ? err.message : String(err)}`),
+        );
+    }
+    await fs.rm(respaldoMaster, { force: true }).catch(() => undefined);
+    if (quick.previewBytes > PREVIEW_MAX_BYTES) {
+      warnings.push(`preview.webp supera el presupuesto: ${(quick.previewBytes / 1024).toFixed(1)} KB`);
+    }
+    if (quick.thumbBytes > THUMB_MAX_BYTES) {
+      warnings.push(`thumb.webp supera el presupuesto: ${(quick.thumbBytes / 1024).toFixed(1)} KB`);
+    }
+
+    // Solo cambian imagen + revisión + GPS; TODO lo demás (nombre, grupo,
+    // puntos, vista, límites) se conserva: para eso se sustituye en lugar de
+    // borrar y re-subir.
+    escena.revHash = revHash;
+    escena.tiles = createTilesDescriptor(sceneId, revHash);
+    if (quick.lat !== undefined) {
+      escena.lat = quick.lat;
+    } else {
+      delete escena.lat;
+    }
+    if (quick.lng !== undefined) {
+      escena.lng = quick.lng;
+    } else {
+      delete escena.lng;
+    }
+    escena.updatedAt = new Date().toISOString();
+
+    const validated = tourDraftSchema.safeParse(draft);
+    if (!validated.success) {
+      return reply.code(400).send(errorReply(`Tour inválido: ${validated.error.message}`));
+    }
+    await store.writeTour(validated.data);
+
+    queue.enqueue(slug, sceneId, masterPath, distNuevo);
+
+    // La revisión anterior queda obsoleta: se elimina su carpeta de dist para
+    // que la próxima publicación no la vuelva a subir (patrón del DELETE).
+    const nota = await fs
+      .rm(distViejo, { recursive: true, force: true })
+      .then(() => undefined)
+      .catch((err: unknown) => {
+        const detalle = err instanceof Error ? err.message : String(err);
+        console.warn(
+          `[sustituir escena] no se pudo eliminar la carpeta dist vieja de ${sceneId}: ${detalle}`,
+        );
+        return `La carpeta de la revisión anterior no se pudo eliminar (${detalle}); se reintentará al publicar.`;
+      });
+
+    return reply.code(200).send({
+      scene: validated.data.scenes.find((s) => s.id === sceneId),
+      quick: {
+        previewBytes: quick.previewBytes,
+        thumbBytes: quick.thumbBytes,
+        durationMs: quick.durationMs,
+        warnings,
+      },
+      job: queue.get(slug, sceneId),
+      ...(nota !== undefined ? { nota } : {}),
+    });
   });
 
   app.delete('/api/tours/:slug/scenes/:sceneId', async (req, reply) => {

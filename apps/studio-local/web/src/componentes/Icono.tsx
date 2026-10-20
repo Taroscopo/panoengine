@@ -14,6 +14,9 @@ const T = {
   enlace:
     'M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71',
   subir: 'M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12',
+  lapiz: 'M17 3a2.8 2.8 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z',
+  chevron: 'M6 9l6 6 6-6',
+  intercambiar: 'M4 7h11m0 0l-3.5-3.5M15 7l-3.5 3.5M20 17H9m0 0l3.5 3.5M9 17l3.5-3.5',
 } as const;
 
 export type NombreIcono = keyof typeof T;

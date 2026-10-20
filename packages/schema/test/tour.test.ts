@@ -1,3 +1,4 @@
+import { ulid } from 'ulid';
 import { describe, expect, it } from 'vitest';
 import { newScene, newTour } from '../src/helpers.js';
 import { MigrationError, migrateTourDraft } from '../src/migrate.js';
@@ -136,5 +137,43 @@ describe('migraciones', () => {
     expect(() => migrateTourDraft({ schemaVersion: 2 })).toThrow(MigrationError);
     expect(() => migrateTourDraft({})).toThrow(/schemaVersion/);
     expect(() => migrateTourDraft('no-objeto')).toThrow(MigrationError);
+  });
+});
+
+describe('grupos de escenas (orden de Andrés)', () => {
+  it('tour nuevo nace con groups: [] y escenas sin groupId', () => {
+    const tour = newTour({ slug: 'casa', title: 'Casa', now: NOW });
+    expect(tour.groups).toEqual([]);
+    expect(tour.scenes).toEqual([]);
+  });
+
+  it('tour v1 SIN groups migra con groups: [] (sin bump de schemaVersion)', () => {
+    const tour = newTour({ slug: 'casa', title: 'Casa', now: NOW });
+    tour.scenes.push(escenaValida());
+    const crudo = JSON.parse(JSON.stringify(tour)) as Record<string, unknown>;
+    delete crudo.groups;
+    const migrado = migrateTourDraft({ ...crudo, schemaVersion: 1 });
+    expect(migrado.groups).toEqual([]);
+  });
+
+  it('acepta groups y scene.groupId coherentes en el contrato publicado', () => {
+    const tour = newTour({ slug: 'casa', title: 'Casa', now: NOW });
+    const a = escenaValida();
+    const b = newScene({ name: 'Cocina', revHash: 'aaaaaaaaaa', now: NOW });
+    const idGrupo = ulid();
+    tour.groups.push({ id: idGrupo, name: 'Piso 1' });
+    a.groupId = idGrupo;
+    tour.scenes.push(a, b);
+    tour.defaultSceneId = a.id;
+    expect(tourSchema.parse(tour).groups).toHaveLength(1);
+  });
+
+  it('rechaza scene.groupId que no corresponde a ningún grupo', () => {
+    const tour = newTour({ slug: 'casa', title: 'Casa', now: NOW });
+    const a = escenaValida();
+    a.groupId = ulid(); // ULID válido pero de un grupo inexistente
+    tour.scenes.push(a);
+    tour.defaultSceneId = a.id;
+    expect(tourSchema.safeParse(tour).success).toBe(false);
   });
 });
