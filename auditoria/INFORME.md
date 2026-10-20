@@ -197,3 +197,18 @@ Orden: «antes de tocar nada, propón qué cabeceras pondrías y cómo se compor
 - **Ningún push** (esperando el scope \`workflow\`; 5 commits en cola incluido este informe). Sin fuerza, sin deploy, Cloudflare intacta.
 - E4 NO empezado (prohibido hasta OK). H1 sin código (solo esta propuesta). Sin cambios en \`RULES.md\`, \`wrangler.jsonc\` ni \`wrangler.staging.jsonc\`.
 - El \`workspace/\` local tiene solo los 2 tours SINTÉTICOS de las capturas (\`demo-e3b\` vencido + \`aurora\`); jamás fotos de clientes.
+
+## Sección pedida por el auditor — significado de «fov», schemaVersion y vista del visitante
+
+**(a) Cómo cambia el significado del «fov» guardado.** El campo no cambia: `defaultView.fov` y `targetFov` siguen siendo FOV vertical en grados con el mismo dominio del schema (convención krpano). Lo que cambia es la CONVERSIÓN contra PSV, que estaba espejada: antes, un fov guardado de 90° se aplicaba como nivel 100 (máximo acercamiento) y el editor, al guardar desde el nivel 0 (abierto), escribía 30°. Ahora el número guardado SIGNIFICA lo que dice — fov 90 = vista más abierta, fov 30 = máximo acercamiento, siempre dentro de los límites activos de la escena. Los tour.json escritos bajo el bug mostraban otra cosa de la que declaraban; con el arreglo muestran exactamente lo que el schema siempre documentó.
+
+**(b) ¿Hace falta subir schemaVersion o migrar tours existentes? NO**, por tres razones. (1) El contrato persistido es idéntico: schema, dominios y defaults intactos (`fovSchema`, `defaultView.fov` por defecto 90, `zoomLimit` 60–150); un tour.json viejo valida hoy y uno nuevo habría validado ayer. (2) El fix reinterpreta los datos hacia su significado DOCUMENTADO — el defecto estaba en el código de conversión, no en los datos — así que no existe ningún valor cuyo significado pretendido quede traicionado. (3) No hay tours reales afectados: el único workspace local contiene los 2 tours sintéticos de demo y jamás se publicó nada a ningún bucket (A2 pendiente). Además `revHash` no cubre `defaultView`/fov (solo los bytes del master y el descriptor del pipeline), de modo que tiles y caché inmutable quedan intactos: nada que re-trocear ni re-publicar por esto. `schemaVersion` sigue en 1.
+
+**(c) Qué ve un visitante hoy en una escena con zoomLimit por defecto (60–150 → recortado a minFov 60 / maxFov 90):**
+- `defaultView.fov = 90` → nivel 0 → FOV vertical **90°: la vista más abierta que la escena permite**; así arranca el visitante. Antes del fix: nivel 100 → 60° reales → arrancaba con el máximo acercamiento.
+- `defaultView.fov = 60` → nivel 100 → FOV vertical **60°: el máximo acercamiento permitido** por ese zoomLimit. Antes del fix: nivel 50 → 75° reales.
+- Referencia de la tabla medida con límites 60–90: nivel 0 → 90°, nivel 50 → 75°, nivel 100 → 60°.
+
+## Regla nueva del auditor (registrada)
+
+- **`analyze_image` (o cualquier herramienta que suba capturas a un servidor externo) queda PROHIBIDA con datos reales de clientes**; solo con datos de demostración. Preferir la descripción propia o la medición por código (colores de píxeles, posiciones del DOM). Nota de cumplimiento: todas las capturas analizadas hasta la fecha contenían exclusivamente datos sintéticos de demo (tours «Demo E3b-fix» y «Hotel Aurora»).
