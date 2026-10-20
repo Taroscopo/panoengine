@@ -1,4 +1,5 @@
 import type { Hotspot, Scene, Tour } from '@panoengine/schema';
+import { zoomLimitToPsv } from '@panoengine/schema';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ulid } from 'ulid';
 import { api, type SceneJob } from './api.js';
@@ -413,6 +414,7 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
                     hotspots={escena.hotspots}
                     hotspotSeleccionado={hotspotSel}
                     modoAgregar={modoAgregar}
+                    limitesZoom={zoomLimitToPsv(escena.zoomLimit)}
                     onAgregar={(yaw, pitch) => void agregarHotspot(yaw, pitch)}
                     onSeleccionar={(id) => {
                       setHotspotSel(id);
@@ -448,7 +450,6 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
                 ? escena && (
                     <DetalleEscena
                       escena={escena}
-                      tour={tour}
                       job={jobDeEscena}
                       vistaActual={vistaActual}
                       onGuardar={guardarEscena}
@@ -647,14 +648,12 @@ function DetalleTour({
 
 function DetalleEscena({
   escena,
-  tour,
   job,
   vistaActual,
   onGuardar,
   onBorrar,
 }: {
   escena: Scene;
-  tour: Tour;
   job: SceneJob | undefined;
   vistaActual: VistaGrados | null;
   onGuardar: (cambios: Record<string, unknown>) => Promise<void>;

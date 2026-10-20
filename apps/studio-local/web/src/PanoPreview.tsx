@@ -4,13 +4,15 @@ import '@photo-sphere-viewer/core/index.css';
 import '@photo-sphere-viewer/markers-plugin/index.css';
 import type { Hotspot } from '@panoengine/schema';
 import { useEffect, useRef } from 'react';
-import { type VistaGrados, vistaAGrados } from './vista.js';
+import { type LimitesFov, type VistaGrados, vistaAGrados } from './vista.js';
 
 interface Props {
   previewUrl: string;
   hotspots: Hotspot[];
   hotspotSeleccionado: string | null;
   modoAgregar: 'nav' | 'info' | 'link' | null;
+  /** Límites activos de la escena (zoomLimitToPsv): los mismos que el visor público (WYSIWYG). */
+  limitesZoom: LimitesFov;
   onAgregar: (yawDeg: number, pitchDeg: number) => void;
   onSeleccionar: (hotspotId: string) => void;
   onVistaActual?: (vista: VistaGrados) => void;
@@ -34,6 +36,7 @@ export function PanoPreview(props: Props): React.JSX.Element {
   callbacks.current = props;
 
   // (Re)crear el visor al cambiar de escena.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: limitesZoom NO recrea el visor; se aplica en vivo con setOptions en el efecto dedicado
   useEffect(() => {
     if (!contenedor.current) {
       return;
@@ -44,6 +47,8 @@ export function PanoPreview(props: Props): React.JSX.Element {
       navbar: ['zoom', 'move', 'fullscreen'],
       lang: { zoom: 'Zoom', move: 'Mover', fullscreen: 'Pantalla completa', loading: 'Cargando…' },
       mousewheelCtrlKey: true,
+      minFov: props.limitesZoom.minFov,
+      maxFov: props.limitesZoom.maxFov,
       plugins: [[MarkersPlugin, { clickEventOnMarker: true }]],
     });
     viewerRef.current = viewer;
@@ -61,9 +66,11 @@ export function PanoPreview(props: Props): React.JSX.Element {
 
     // Vista actual en grados del schema, notificada en cada actualización.
     const notificar = (): void => {
-      const { onVistaActual } = callbacks.current;
+      const { onVistaActual, limitesZoom } = callbacks.current;
       if (onVistaActual && viewerRef.current) {
-        onVistaActual(vistaAGrados(viewerRef.current.getPosition(), viewerRef.current.getZoomLevel()));
+        onVistaActual(
+          vistaAGrados(viewerRef.current.getPosition(), viewerRef.current.getZoomLevel(), limitesZoom),
+        );
       }
     };
     viewer.addEventListener('position-updated', notificar);
@@ -76,6 +83,15 @@ export function PanoPreview(props: Props): React.JSX.Element {
       markersRef.current = null;
     };
   }, [props.previewUrl]);
+
+  // Al cambiar el zoomLimit de la escena (panel Avanzado) el visor del editor
+  // adopta en vivo los mismos límites que tendrá el visor público (WYSIWYG).
+  useEffect(() => {
+    viewerRef.current?.setOptions({
+      minFov: props.limitesZoom.minFov,
+      maxFov: props.limitesZoom.maxFov,
+    });
+  }, [props.limitesZoom.minFov, props.limitesZoom.maxFov]);
 
   // Refrescar marcadores cuando cambian los hotspots o la selección.
   // previewUrl es dependencia deliberada: al recrear el visor hay que repintar los
@@ -99,9 +115,9 @@ export function PanoPreview(props: Props): React.JSX.Element {
 
   const usarVistaInicio = (): void => {
     const viewer = viewerRef.current;
-    const { onVistaGuardar } = callbacks.current;
+    const { onVistaGuardar, limitesZoom } = callbacks.current;
     if (viewer && onVistaGuardar) {
-      onVistaGuardar(vistaAGrados(viewer.getPosition(), viewer.getZoomLevel()));
+      onVistaGuardar(vistaAGrados(viewer.getPosition(), viewer.getZoomLevel(), limitesZoom));
     }
   };
 
@@ -120,10 +136,11 @@ export function PanoPreview(props: Props): React.JSX.Element {
         </div>
       )}
       {props.onVistaGuardar && !props.modoAgregar && (
+        /* bottom-14: flotando SOBRE la navbar de PSV (40 px) sin taparla (E3b-fix). */
         <button
           type="button"
           onClick={usarVistaInicio}
-          className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2 rounded-control border border-transparent bg-texto px-4 py-2 text-sm font-medium text-[#15171B] transition-colors hover:bg-texto-suave"
+          className="absolute bottom-14 left-1/2 z-10 -translate-x-1/2 rounded-control border border-transparent bg-texto px-4 py-2 text-sm font-medium text-[#15171B] transition-colors hover:bg-texto-suave"
         >
           Usar esta vista como inicio
         </button>

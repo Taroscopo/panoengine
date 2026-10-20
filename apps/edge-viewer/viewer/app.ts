@@ -43,6 +43,11 @@ export function iniciarTour(tour: Tour, slug: string): void {
     return;
   }
 
+  // Límites activos de la escena inicial: PSV interpola el nivel de zoom entre
+  // el minFov/maxFov en vigor, así que TODA conversión fov↔nivel debe usarlos
+  // (E3b-fix, WYSIWYG con el estudio, que ya aplica estos mismos límites).
+  const limitesPrimera = zoomLimitToPsv(primera.zoomLimit);
+
   const viewer = new Viewer({
     container: 'pano',
     adapter: [EquirectangularTilesAdapter, { showErrorTile: false }],
@@ -57,11 +62,11 @@ export function iniciarTour(tour: Tour, slug: string): void {
       fullscreen: 'Pantalla completa',
       loading: 'Cargando…',
     },
-    minFov: zoomLimitToPsv(primera.zoomLimit).minFov,
-    maxFov: zoomLimitToPsv(primera.zoomLimit).maxFov,
+    minFov: limitesPrimera.minFov,
+    maxFov: limitesPrimera.maxFov,
     defaultYaw: rad(primera.defaultView.yaw),
     defaultPitch: rad(primera.defaultView.pitch),
-    defaultZoomLvl: fovToZoomLvl(primera.defaultView.fov),
+    defaultZoomLvl: fovToZoomLvl(primera.defaultView.fov, limitesPrimera.minFov, limitesPrimera.maxFov),
     loadingTxt: 'Cargando el tour…',
     defaultTransition: { speed: 1200, effect: 'fade' },
     plugins: [
@@ -83,6 +88,8 @@ export function iniciarTour(tour: Tour, slug: string): void {
           ): VirtualTourTransitionOptions => {
             const datoLink = porLink?.data as DatoLink | undefined;
             const datoNodo = hacia.data as DatoNodo | undefined;
+            // Los límites del NODO DESTINO gobiernan la conversión fov→nivel.
+            const limitesDestino = zoomLimitToPsv(datoNodo?.escena.zoomLimit ?? primera.zoomLimit);
             let rotateTo: { yaw: number; pitch: number } | undefined;
             let zoomTo: number | undefined;
             if (datoLink) {
@@ -92,14 +99,18 @@ export function iniciarTour(tour: Tour, slug: string): void {
                 pitch: rad(datoLink.targetPitch ?? pos?.pitch ?? 0),
               };
               if (datoLink.targetFov !== undefined) {
-                zoomTo = fovToZoomLvl(datoLink.targetFov);
+                zoomTo = fovToZoomLvl(datoLink.targetFov, limitesDestino.minFov, limitesDestino.maxFov);
               }
             } else if (datoNodo) {
               rotateTo = {
                 yaw: rad(datoNodo.escena.defaultView.yaw),
                 pitch: rad(datoNodo.escena.defaultView.pitch),
               };
-              zoomTo = fovToZoomLvl(datoNodo.escena.defaultView.fov);
+              zoomTo = fovToZoomLvl(
+                datoNodo.escena.defaultView.fov,
+                limitesDestino.minFov,
+                limitesDestino.maxFov,
+              );
             }
             return {
               effect: efectoPsv(datoLink?.transitionEffect),
@@ -275,7 +286,7 @@ export function iniciarTour(tour: Tour, slug: string): void {
           void viewer.animate({
             yaw: rad(primera.defaultView.yaw),
             pitch: rad(primera.defaultView.pitch),
-            zoom: fovToZoomLvl(primera.defaultView.fov),
+            zoom: fovToZoomLvl(primera.defaultView.fov, limitesPrimera.minFov, limitesPrimera.maxFov),
             speed: '4rpm',
           });
           viewer.setOptions({ fisheye: false });

@@ -1,9 +1,11 @@
 /**
  * Conversión de vista del visor PSV a los grados del schema.
- * MISMA matemática que el edge-viewer al aplicar defaultView (fovToZoomLvl /
- * zoomLvlToFov del paquete schema, con minFov=30/maxFov=90): este módulo importa
- * zoomLvlToFov para garantizar que el estudio y el visor público hablan el mismo
- * idioma. Tests en test/vista.test.ts prueban el round-trip contra fovToZoomLvl.
+ * MISMA matemática que el edge-viewer al aplicar defaultView/targetFov
+ * (fovToZoomLvl / zoomLvlToFov de @panoengine/schema): nivel 0 = 90° (máxima
+ * apertura) y nivel 100 = 30° (máximo zoom), dirección MEDIDA de PSV
+ * (E3b-fix). Las funciones aceptan los límites ACTIVOS de la escena
+ * (zoomLimitToPsv) para que el estudio muestre y guarde exactamente lo que
+ * el visor público reproducirá. Tests en test/vista.test.ts.
  */
 import { fovToZoomLvl, zoomLvlToFov } from '@panoengine/schema';
 
@@ -16,6 +18,12 @@ export interface VistaGrados {
   altura: number;
   /** Zoom (FOV) en grados, mismo dominio que defaultView.fov del schema. */
   zoom: number;
+}
+
+/** Límites de FOV activos (los de zoomLimitToPsv de la escena). */
+export interface LimitesFov {
+  minFov: number;
+  maxFov: number;
 }
 
 export function radANormalizadoGiroGrados(yawRad: number): number {
@@ -32,16 +40,20 @@ export function radAAlturaGrados(pitchRad: number): number {
 }
 
 /** zoomLvl del visor PSV → FOV en grados (idéntico al visor público). */
-export function zoomLvlAFovGrados(zoomLvl: number): number {
-  return Math.round(zoomLvlToFov(zoomLvl) * 10) / 10;
+export function zoomLvlAFovGrados(zoomLvl: number, limites?: LimitesFov): number {
+  return Math.round(zoomLvlToFov(zoomLvl, limites?.minFov, limites?.maxFov) * 10) / 10;
 }
 
 /** Vista completa del visor en grados del schema. */
-export function vistaAGrados(pos: { yaw: number; pitch: number }, zoomLvl: number): VistaGrados {
+export function vistaAGrados(
+  pos: { yaw: number; pitch: number },
+  zoomLvl: number,
+  limites?: LimitesFov,
+): VistaGrados {
   return {
     giro: radANormalizadoGiroGrados(pos.yaw),
     altura: radAAlturaGrados(pos.pitch),
-    zoom: zoomLvlAFovGrados(zoomLvl),
+    zoom: zoomLvlAFovGrados(zoomLvl, limites),
   };
 }
 
