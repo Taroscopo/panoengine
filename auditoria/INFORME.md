@@ -405,3 +405,23 @@ VERIFY_EXIT=0
 **Bug 2 (corregido):** tras crear un punto, el panel derecho seguía en «Escena» en vez de pasar a «Editando punto». Fix: `setPanelDerecho('punto')` al crearlo.
 
 `pnpm verify` tras ambos fixes: exit 0, 103 tests, biome limpio.
+
+---
+
+## H1 (endurecimiento) + E4 «Nivelar horizonte» — hoja de ruta EDITOR v2, etapa 1
+
+**H1a — /files solo sirve dist/:** guard en el hook `onRequest` (`app.ts`): bajo `/files/` solo se admite `^/files/tours/{slug-kebab}/dist/` (masters, tour.json de borrador, manifest y cualquier otra ruta → 404; URL malformada → 404). Verificado en vivo (`curl` a `/files/tours/demo-e3b/tour.json` → 404) y con 3 tests nuevos (`files-dist.test.ts`).
+
+**H1b — freno anti-producción:** `wrangler.jsonc` renombrado a **`wrangler.produccion.jsonc`** → un `wrangler deploy` desnudo en `apps/edge-viewer` FALLA (ya no hay config por defecto). `build` y `dev` apuntan explícitamente al config de producción (dry-run/dev); el smoke usa `--config`. Única vía local de deploy real: `pnpm deploy:produccion` → `scripts/desplegar-produccion.mjs`, que exige `PANOENGINE_ORDEN_PRODUCCION=CONFIRMADO` (lógica tipada en `scripts/freno.ts`, 2 tests). Sin la variable se detiene sin tocar nada.
+
+**H1c — cabeceras de seguridad del Worker (propuesta auditada):** middleware Hono `use('*')` añade a TODAS las respuestas `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()`. Sin tocar Cache-Control/ETag/Range (206/304/416 intactos). `frame-ancestors` sigue PENDIENTE de decisión (embebido en webs de clientes). **Primera suite HTTP del Worker** (`worker-http.test.ts`, 3 tests vía `app.request` con R2/ASSETS de mentira): healthz 200 con las tres cabeceras; tour inexistente 404 HTML no-store CON nosniff; path con `..` codificado → 400/404 con nosniff. El smoke del CI ahora exige `nosniff` en la 404.
+
+**E4 — Nivelar horizonte:** `PATCH /scenes/:id` acepta `sphereCorrection` (objeto completo {pan,tilt,roll} en grados; `null` lo quita) con validación ±180 (4 tests: válido persiste en disco, pan 181/tilt −181/roll 999 → 400 SIN tocar el tour, null quita, ±180 exactos válidos). UI: tarjeta «Nivelar horizonte» en el panel de escena con 3 deslizadores («Girar la foto», «Inclinar adelante-atrás», «Inclinar hacia un lado»), **autoguardado con debounce 600 ms** + indicador «Guardando…/Guardado/Error en rojo», y «Restablecer» (PATCH null). La corrección se aplica **EN VIVO** en el visor del editor con la misma opción que el visor público (grados→radianes).
+
+**Bug hallado y corregido durante la etapa:** `setOptions({sphereCorrection})` ANTES de «ready» revienta el renderer de PSV («Cannot read properties of undefined (reading 'rotation')») — se aplica en la creación vía config y los cambios en vivo solo tras `ready` (ref de guarda).
+
+**Verificación en vivo (tour demo, código, no imágenes):** slider de «Inclinar hacia un lado» a −15° con teclado → PATCH automático → API devuelve `{"pan":0,"tilt":0,"roll":-15}` → indicador «Guardado» visible → captura → «Restablecer» → campo eliminado. Captura: `auditoria/estudio-v2-e4-nivelar.png`.
+
+**`pnpm verify` (literal, exit 0): 115 tests** (schema 27, edge-viewer 31, web 21, server 36 — **+12 nuevos**), biome sin errores ni avisos.
+
+```text

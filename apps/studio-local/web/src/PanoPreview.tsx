@@ -25,6 +25,8 @@ interface Props {
   modoAgregar: 'nav' | 'info' | 'link' | null;
   /** Límites activos de la escena (zoomLimitToPsv): los mismos que el visor público (WYSIWYG). */
   limitesZoom: LimitesFov;
+  /** Nivelar horizonte (E4): grados; se aplica en vivo igual que en el visor público. */
+  correccionEsfera: { pan: number; tilt: number; roll: number };
   onAgregar: (yawDeg: number, pitchDeg: number) => void;
   onSeleccionar: (hotspotId: string) => void;
   onVistaActual?: (vista: VistaGrados) => void;
@@ -41,6 +43,8 @@ const ICONOS: Record<Hotspot['type'], string> = {
 export function PanoPreview(props: Props): React.JSX.Element {
   const contenedor = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
+  /** El visor terminó de cargar: setOptions con sphereCorrection solo es seguro tras «ready». */
+  const listoRef = useRef(false);
   const markersRef = useRef<MarkersPlugin | null>(null);
   const callbacks = useRef(props);
   callbacks.current = props;
@@ -61,6 +65,13 @@ export function PanoPreview(props: Props): React.JSX.Element {
       // Sin mousewheelCtrlKey: zoom nativo con la rueda del mouse (orden del propietario).
       minFov: props.limitesZoom.minFov,
       maxFov: props.limitesZoom.maxFov,
+      // Nivelar horizonte (E4): aplicada desde la creación (setOptions con
+      // sphereCorrection ANTES de «ready» revienta el renderer de PSV).
+      sphereCorrection: {
+        pan: (props.correccionEsfera.pan * Math.PI) / 180,
+        tilt: (props.correccionEsfera.tilt * Math.PI) / 180,
+        roll: (props.correccionEsfera.roll * Math.PI) / 180,
+      },
       plugins: [[MarkersPlugin, { clickEventOnMarker: true }]],
     };
     const viewer = new Viewer(
@@ -101,12 +112,16 @@ export function PanoPreview(props: Props): React.JSX.Element {
     };
     viewer.addEventListener('position-updated', notificar);
     viewer.addEventListener('zoom-updated', notificar);
-    viewer.addEventListener('ready', notificar);
+    viewer.addEventListener('ready', () => {
+      listoRef.current = true;
+      notificar();
+    });
 
     return () => {
       viewer.destroy();
       viewerRef.current = null;
       markersRef.current = null;
+      listoRef.current = false;
     };
   }, [props.previewUrl, conTiles]);
 
@@ -118,6 +133,23 @@ export function PanoPreview(props: Props): React.JSX.Element {
       maxFov: props.limitesZoom.maxFov,
     });
   }, [props.limitesZoom.minFov, props.limitesZoom.maxFov]);
+
+  // Nivelar horizonte (E4): grados → radianes, en VIVO tras «ready» (el valor
+  // inicial se aplica en la creación). Mismo mecanismo que el visor público.
+  const correccion = props.correccionEsfera;
+  useEffect(() => {
+    if (!listoRef.current) {
+      return;
+    }
+    const rad = (deg: number): number => (deg * Math.PI) / 180;
+    viewerRef.current?.setOptions({
+      sphereCorrection: {
+        pan: rad(correccion.pan),
+        tilt: rad(correccion.tilt),
+        roll: rad(correccion.roll),
+      },
+    });
+  }, [correccion]);
 
   // Refrescar marcadores cuando cambian los hotspots o la selección.
   // previewUrl y conTiles son dependencias deliberadas: al recrear el visor

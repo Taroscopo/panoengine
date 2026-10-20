@@ -15,6 +15,27 @@ const webDistDir = path.resolve(serverDir, '../web/dist');
 
 const HOSTS_LOCALES = new Set(['127.0.0.1', 'localhost', '[::1]']);
 
+/**
+ * H1 (orden del propietario): /files solo sirve el CONTENIDO PUBLICABLE de
+ * dist/ — nunca los masters originales (RULES.md §4: masters no salen del
+ * disco local por HTTP). Patrón: /files/tours/{slug}/dist/…
+ */
+const RUTA_FILES_VALIDA = /^\/files\/tours\/[a-z0-9]+(?:-[a-z0-9]+)*\/dist(?:\/|$)/;
+
+function rutaFilesPermitida(url: string | undefined): boolean {
+  if (url === undefined) {
+    return true; // no es /files → el guard no aplica
+  }
+  if (!url.startsWith('/files/')) {
+    return true;
+  }
+  try {
+    return RUTA_FILES_VALIDA.test(decodeURIComponent(url.split('?')[0] ?? ''));
+  } catch {
+    return false; // URL malformada (%ZZ) → bloqueada
+  }
+}
+
 function hostLocal(valor: string | undefined): boolean {
   if (valor === undefined) {
     return true; // curl y clientes sin Host explícito anómalo
@@ -62,6 +83,10 @@ export function buildApp(config: StudioConfig): FastifyInstance {
       await reply
         .code(403)
         .send({ error: 'El estudio solo acepta peticiones locales (127.0.0.1/localhost)' });
+      return;
+    }
+    if (!rutaFilesPermitida(req.raw.url)) {
+      await reply.code(404).send({ error: 'Archivo no encontrado' });
       return;
     }
     const mutacion = ['POST', 'PATCH', 'DELETE'].includes(req.method);

@@ -15,6 +15,19 @@ export type Env = { Bindings: { TOURS: R2Bucket; ASSETS: Fetcher } };
 
 const app = new Hono<Env>();
 
+/**
+ * Cabeceras de seguridad (H1, orden del propietario — propuesta auditada por
+ * Cloudy): en TODAS las respuestas (HTML, JSON, tiles, 206/304/416 incluidos).
+ * No tocan Cache-Control/ETag/Accept-Ranges. frame-ancestors queda pendiente
+ * de decisión (bloquearía embeber tours en webs de clientes).
+ */
+app.use('*', async (c, next) => {
+  await next();
+  c.header('X-Content-Type-Options', 'nosniff');
+  c.header('Referrer-Policy', 'strict-origin-when-cross-origin');
+  c.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+});
+
 function htmlResponse(html: string, status: number): Response {
   return new Response(html, {
     status,

@@ -1,6 +1,6 @@
 import type { Hotspot, Scene, Tour } from '@panoengine/schema';
 import { zoomLimitToPsv } from '@panoengine/schema';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ulid } from 'ulid';
 import { api, type SceneJob } from './api.js';
 import { Boton } from './componentes/Boton.js';
@@ -80,6 +80,80 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
     [tour, escenaId],
   );
   const jobDeEscena = jobs.find((j) => j.sceneId === escenaId);
+
+  // Nivelar horizonte (E4): estado vivo compartido por el visor (aplicación en
+  // vivo) y la tarjeta de sliders; autoguardado con debounce de 600 ms.
+  const [correccion, setCorreccion] = useState({ pan: 0, tilt: 0, roll: 0 });
+  const [estadoCorreccion, setEstadoCorreccion] = useState<'idle' | 'guardando' | 'guardado' | 'error'>(
+    'idle',
+  );
+  const timerCorreccion = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const idCorreccionSync = useRef<string | null>(null);
+  useEffect(() => {
+    if (escena && idCorreccionSync.current !== escena.id) {
+      idCorreccionSync.current = escena.id;
+      const c = escena.sphereCorrection;
+      setCorreccion(c ? { pan: c.pan, tilt: c.tilt, roll: c.roll } : { pan: 0, tilt: 0, roll: 0 });
+      setEstadoCorreccion('idle');
+    }
+  }, [escena]);
+  useEffect(() => {
+    return () => {
+      if (timerCorreccion.current) {
+        clearTimeout(timerCorreccion.current);
+      }
+    };
+  }, []);
+
+  const cambiarCorreccion = (valor: { pan: number; tilt: number; roll: number }): void => {
+    setCorreccion(valor);
+    if (!escena) {
+      return;
+    }
+    if (timerCorreccion.current) {
+      clearTimeout(timerCorreccion.current);
+    }
+    setEstadoCorreccion('guardando');
+    timerCorreccion.current = setTimeout(() => {
+      api
+        .parchearEscena(slug, escena.id, { sphereCorrection: valor })
+        .then((actualizada) => {
+          setTour((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  scenes: prev.scenes.map((s) => (s.id === actualizada.id ? actualizada : s)),
+                }
+              : prev,
+          );
+          setEstadoCorreccion('guardado');
+        })
+        .catch(() => setEstadoCorreccion('error'));
+    }, 600);
+  };
+
+  const restablecerCorreccion = (): void => {
+    if (!escena) {
+      return;
+    }
+    if (timerCorreccion.current) {
+      clearTimeout(timerCorreccion.current);
+    }
+    setCorreccion({ pan: 0, tilt: 0, roll: 0 });
+    setEstadoCorreccion('guardando');
+    api
+      .parchearEscena(slug, escena.id, { sphereCorrection: null })
+      .then((actualizada) => {
+        setTour((prev) =>
+          prev
+            ? { ...prev, scenes: prev.scenes.map((s) => (s.id === actualizada.id ? actualizada : s)) }
+            : prev,
+        );
+        setEstadoCorreccion('guardado');
+        setMensaje({ texto: 'Horizonte restablecido', tipo: 'ok' });
+      })
+      .catch(() => setEstadoCorreccion('error'));
+  };
 
   const guardarTour = async (cambios: Record<string, unknown>): Promise<void> => {
     try {
@@ -386,6 +460,7 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
                     hotspotSeleccionado={hotspotSel}
                     modoAgregar={modoAgregar}
                     limitesZoom={zoomLimitToPsv(escena.zoomLimit)}
+                    correccionEsfera={correccion}
                     onAgregar={(yaw, pitch) => void agregarHotspot(yaw, pitch)}
                     onSeleccionar={(id) => {
                       setHotspotSel(id);
@@ -422,6 +497,10 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
                     <DetalleEscena
                       escena={escena}
                       job={jobDeEscena}
+                      correccion={correccion}
+                      estadoCorreccion={estadoCorreccion}
+                      onCorreccion={cambiarCorreccion}
+                      onRestablecer={restablecerCorreccion}
                       vistaActual={vistaActual}
                       onGuardar={guardarEscena}
                       onBorrar={() => void borrarEscena()}
@@ -621,12 +700,20 @@ function DetalleEscena({
   escena,
   job,
   vistaActual,
+  correccion,
+  estadoCorreccion,
+  onCorreccion,
+  onRestablecer,
   onGuardar,
   onBorrar,
 }: {
   escena: Scene;
   job: SceneJob | undefined;
   vistaActual: VistaGrados | null;
+  correccion: { pan: number; tilt: number; roll: number };
+  estadoCorreccion: 'idle' | 'guardando' | 'guardado' | 'error';
+  onCorreccion: (valor: { pan: number; tilt: number; roll: number }) => void;
+  onRestablecer: () => void;
   onGuardar: (cambios: Record<string, unknown>) => Promise<void>;
   onBorrar: () => void;
 }): React.JSX.Element {
@@ -697,6 +784,47 @@ function DetalleEscena({
         </Boton>
         <p className="mt-2 text-xs text-texto-tenue">
           Mueve la vista hasta donde quieres que empiece el visitante y pulsa el botón.
+        </p>
+      </div>
+
+      <div className="mb-4 rounded-tarjeta border border-linea bg-tarjeta p-3">
+        <div className="mb-2 flex items-center justify-between">
+          <p className="text-xs font-medium uppercase tracking-wide text-texto-tenue">Nivelar horizonte</p>
+          {estadoCorreccion === 'guardando' && <span className="text-xs text-ambar">Guardando…</span>}
+          {estadoCorreccion === 'guardado' && <span className="text-xs text-verde">Guardado</span>}
+          {estadoCorreccion === 'error' && (
+            <span className="text-xs text-rojo">Error al guardar — se reintenta al mover</span>
+          )}
+        </div>
+        {(
+          [
+            ['pan', 'Girar la foto'],
+            ['tilt', 'Inclinar adelante-atrás'],
+            ['roll', 'Inclinar hacia un lado'],
+          ] as const
+        ).map(([clave, etiqueta]) => (
+          <label key={clave} className="mb-2 block text-xs text-texto-suave">
+            <span className="flex items-center justify-between">
+              {etiqueta}
+              <span className="tabular-nums text-texto">{correccion[clave].toFixed(1)}°</span>
+            </span>
+            <input
+              type="range"
+              min={-180}
+              max={180}
+              step={0.5}
+              value={correccion[clave]}
+              aria-label={etiqueta}
+              onChange={(e) => onCorreccion({ ...correccion, [clave]: Number(e.target.value) })}
+              className="mt-1 w-full accent-texto"
+            />
+          </label>
+        ))}
+        <Boton variante="fantasma" className="mt-1 w-full" onClick={onRestablecer}>
+          Restablecer
+        </Boton>
+        <p className="mt-2 text-xs text-texto-tenue">
+          La corrección se ve en vivo en la panorámica y se guarda sola.
         </p>
       </div>
 

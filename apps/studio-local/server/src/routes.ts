@@ -11,6 +11,7 @@ import {
   patchSchema,
   sceneAudioSchema,
   slugSchema,
+  sphereCorrectionSchema,
   THUMB_MAX_BYTES,
   tourDraftSchema,
   tourSchema,
@@ -86,6 +87,8 @@ const patchTourBody = z.object({
 const patchSceneBody = z.object({
   name: z.string().min(1).max(120).optional(),
   defaultView: defaultViewSchema.partial().optional(),
+  /** Nivelar horizonte (E4): objeto COMPLETO {pan,tilt,roll} en grados; null lo quita. */
+  sphereCorrection: sphereCorrectionSchema.nullable().optional(),
   zoomLimit: zoomLimitSchema.partial().optional(),
   lat: z.number().min(-90).max(90).nullable().optional(),
   lng: z.number().min(-180).max(180).nullable().optional(),
@@ -375,6 +378,8 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
     if (body.defaultView !== undefined) {
       scene.defaultView = defaultViewSchema.parse({ ...scene.defaultView, ...body.defaultView });
     }
+    // Nivelar horizonte (E4): el visor convierte grados → radianes al renderizar.
+    applyNullable(scene, 'sphereCorrection', body.sphereCorrection);
     if (body.zoomLimit !== undefined) {
       scene.zoomLimit = zoomLimitSchema.parse({ ...scene.zoomLimit, ...body.zoomLimit });
     }

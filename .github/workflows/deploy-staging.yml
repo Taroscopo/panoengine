@@ -2,7 +2,7 @@
 # Se dispara SOLO cuando CI termina en verde en un push a main (workflow_run).
 # Despliega únicamente apps/edge-viewer con `--config wrangler.staging.jsonc`
 # (Worker panoengine-edge-viewer-staging + bucket panoengine-tours-staging).
-# El wrangler.jsonc de producción NO se usa en ningún paso de este workflow.
+# El wrangler.produccion.jsonc NO se usa en ningún paso de este workflow.
 # Este despliegue NO sube tours: los tours se publican desde el estudio local
 # con el botón «Publicar» (publisher R2).
 name: Deploy staging
@@ -48,7 +48,7 @@ jobs:
         run: pnpm install --frozen-lockfile
       # build:viewer = vite build → dist-viewer. NO se ejecuta `pnpm build`
       # completo aquí porque su último paso es un dry-run contra el config de
-      # producción (wrangler.jsonc), vetado en este workflow.
+      # producción (wrangler.produccion.jsonc), vetado en este workflow.
       - name: Construir el visor
         run: pnpm --filter @panoengine/edge-viewer build:viewer
       - name: Desplegar Worker del visor a staging
@@ -81,4 +81,5 @@ jobs:
           [ "$codigo" = "404" ] || { echo "tour inexistente: se esperaba 404 y llegó $codigo" >&2; exit 1; }
           grep -qi '^content-type: text/html' /tmp/no-tour.headers || { echo 'falta Content-Type: text/html' >&2; exit 1; }
           grep -qi '^cache-control: no-store' /tmp/no-tour.headers || { echo 'falta Cache-Control: no-store' >&2; exit 1; }
+          grep -qi '^x-content-type-options: nosniff' /tmp/no-tour.headers || { echo 'falta X-Content-Type-Options: nosniff (H1)' >&2; exit 1; }
           echo 'Smoke de staging OK'

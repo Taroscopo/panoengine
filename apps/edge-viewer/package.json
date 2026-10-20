@@ -4,11 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "pnpm build:viewer && wrangler dev",
+    "dev": "pnpm build:viewer && wrangler dev --config wrangler.produccion.jsonc",
     "typecheck": "tsc -p tsconfig.worker.json && tsc -p tsconfig.viewer.json",
     "test": "vitest run",
     "build:viewer": "vite build",
-    "build": "pnpm build:viewer && tsc -p tsconfig.worker.json && wrangler deploy --dry-run --outdir dist-worker",
+    "build": "pnpm build:viewer && tsc -p tsconfig.worker.json && wrangler deploy --dry-run --outdir dist-worker --config wrangler.produccion.jsonc",
+    "deploy:produccion": "node scripts/desplegar-produccion.mjs",
     "test:smoke": "node test/smoke/visor.smoke.mjs"
   },
   "dependencies": {

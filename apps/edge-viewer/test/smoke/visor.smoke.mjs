@@ -86,11 +86,15 @@ for (const [destino, origen] of [
 log('R2 local sembrado (tour.json + preview + thumb)');
 
 // ---- 2. Arrancar el Worker ----
-const worker = spawn('pnpm', ['exec', 'wrangler', 'dev', '--port', String(PUERTO), '--local'], {
-  cwd: PAQUETE,
-  stdio: ['ignore', 'pipe', 'pipe'],
-  detached: true, // grupo propio: se puede matar el árbol completo (pnpm→wrangler→workerd)
-});
+const worker = spawn(
+  'pnpm',
+  ['exec', 'wrangler', 'dev', '--config', 'wrangler.produccion.jsonc', '--port', String(PUERTO), '--local'],
+  {
+    cwd: PAQUETE,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    detached: true, // grupo propio: se puede matar el árbol completo (pnpm→wrangler→workerd)
+  },
+);
 worker.stdout.on('data', (d) => process.env.PANO_SMOKE_VERBOSE && process.stderr.write(d));
 worker.stderr.on('data', (d) => process.env.PANO_SMOKE_VERBOSE && process.stderr.write(d));
 const matarArbol = () => {
