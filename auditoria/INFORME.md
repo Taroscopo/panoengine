@@ -496,3 +496,6 @@ El editor solo activaba la vista de tiles si el **job en memoria** decía «done
 2. **El límite real en zoom extremo es el master** (164 % de cobertura pedido a fov 30/DPR 2): más resolución exigiría subir MASTER_WIDTH (11264) — enmienda a RULES §3, no recomendado (el X5 entrega 11904×5952 y ya casi se aprovecha todo).
 
 **`pnpm verify` (literal, exit 0): 117 tests**, biome limpio. Sin deploy, RULES intacto.
+
+### Confirmación de recepción de la ADENDA PANOEE (post-E5a)
+Recibida y aplicada la adenda de Cloudy (ver `auditoria/HOJA-DE-RUTA-EDITOR-V3.md`, sección final): panel de punto con pestañas Símbolo/Etiqueta/Global y visibilidad por zoom, Point Setup con miniatura de destino y punto de regreso, nivelación automática y límites verticales/horizontales, barra inferior del visor con lectura en vivo y modos armados, selección múltiple de escenas, caja de sugerencias → revisión previa (E13), y backlog explícito (efectos de IA, analíticas, mapa, mini-mapa fuera). E5 que empiezo a continuación ya incorpora sus cambios. Referencia funcional únicamente: nada de marca, textos ni íconos de Panoee.

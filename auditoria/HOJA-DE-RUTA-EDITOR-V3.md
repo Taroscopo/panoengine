@@ -32,3 +32,25 @@ BACKLOG (NO hacer): idioma múltiple, contraseña, formulario de leads, analíti
 CONGELADO: Vertientes 1–4 (extractor gnomónico/IA, chroma-key, planos/minimapa, Street View).
 
 ORDEN DE TRABAJO: E5a → E5 → E6 → E7 → E8 → E9 (pausa, espera OK) → E10 → E11 → E12 → E13 → E14. Avanza etapa por etapa con push y informe en cada una; yo audito en paralelo y te paro si algo está mal. Si algo de esta lista choca con RULES.md o con el código real, detente y dímelo en el informe en vez de improvisar.
+
+---
+
+## ADENDA PANOEE (Cloudy, 2026-10-20 — vista por navegador del editor real de Panoee; lectura, nada modificado)
+
+NO copiar marca, textos ni íconos de Panoee: es referencia funcional.
+
+PANEL DE PUNTO (aplica a E5/E8): pestañas «Símbolo | Etiqueta | Global». Símbolo: biblioteca de íconos, imagen propia, animación (pulso en anillos, etc.), texto. Ajustes por punto: Tamaño, Opacidad, Rotación, Efecto, VISIBILIDAD por rango de zoom (se muestra solo entre dos valores de campo de visión), casilla «Distorsionado» (perspectiva pegada al suelo → clave de E9/E10). «Global» = estilo para todo el tour con excepción por punto. Barra del punto: Copiar, Pegar, Borrar, Más. Lista de puntos de la escena: editar, duplicar, borrar, «Pegar» y «Borrar todos» (con confirmación).
+NAVEGACIÓN «Point Setup» (E8): selector de escena destino + MINIATURA PANORÁMICA DEL DESTINO con mira para fijar la vista de llegada (arrastrando sobre la miniatura), casillas «Vista de llegada» y «Punto de regreso» (crea automáticamente el punto de vuelta), botón «Ir a la escena», transición elegible, miniatura del punto (ninguna / automática / imagen / subir).
+ESCENA (E7/E12): botón único «Nivelar automáticamente» además de nuestros 3 sliders (E4); «Tapar trípode» con modo rápido y modo personalizado; límites de visión vertical y horizontal; límite de zoom; audio .mp3 por escena; reemplazar foto; miniatura con cámara/subir.
+BARRA INFERIOR DEL VISOR (E5): lectura en vivo de giro/altura/zoom, botón «Vista por defecto», modos «+ Punto | + Medio | + Polígono» (el clic en el tipo ARMA la colocación; Esc cancela).
+LISTA DE ESCENAS: selección múltiple con casillas (base de «Aplicar a…» de E7), grupos, buscar, colapsar, vista cuadrícula/lista.
+SUGERENCIAS: caja «N sugerencias» en la cabecera (en E13 se convierte en la REVISIÓN PREVIA A PUBLICAR: escenas sin puntos, destinos rotos, sin punto de regreso, sin miniatura, vencimiento).
+BACKLOG EXPLÍCITO (no ahora): efectos de IA de Panoee (día→atardecer, filtros, luz solar), analíticas, pestaña Location/mapa (planos congelados), mini-mapa.
+
+### Cambios a las etapas V3 (aplicados por esta adenda)
+- **E5** incluye barra inferior con modos armados + lectura en vivo de la vista.
+- **E7** incluye selección múltiple de escenas, «Nivelar automáticamente» y límites verticales/horizontales.
+- **E8** incluye Visibilidad por rango de zoom, estilo Global/por punto, Point Setup con miniatura de destino y punto de regreso automático.
+- **E9** usa la casilla «Distorsionado» como requisito (suelo con perspectiva).
+- **E13** convierte la caja de «sugerencias» en la REVISIÓN PREVIA A PUBLICAR.
+Sin deploy ni force; sin tocar RULES.md.
