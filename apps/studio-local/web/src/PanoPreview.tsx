@@ -114,6 +114,13 @@ export function PanoPreview(props: Props): React.JSX.Element {
     viewer.addEventListener('zoom-updated', notificar);
     viewer.addEventListener('ready', () => {
       listoRef.current = true;
+      // E4-fix: aplicar la corrección vigente al quedar listo (cubre la
+      // recreación por fin del job de tiles y cualquier carrera de estado).
+      const c = callbacks.current.correccionEsfera;
+      const rad = (deg: number): number => (deg * Math.PI) / 180;
+      viewer.setOptions({
+        sphereCorrection: { pan: rad(c.pan), tilt: rad(c.tilt), roll: rad(c.roll) },
+      });
       notificar();
     });
 

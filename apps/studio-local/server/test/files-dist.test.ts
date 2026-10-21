@@ -60,4 +60,33 @@ describe('/files solo sirve dist/ (H1)', () => {
       expect(res.statusCode, url).toBe(404);
     }
   });
+
+  it('H1-fix: el bypass con «..» codificado NO colma masters ni tour.json (404)', async () => {
+    const app = buildApp(config);
+    for (const url of [
+      '/files/tours/demo-files/dist/..%2fmasters/01A.jpg',
+      '/files/tours/demo-files/dist/%2e%2e%2fmasters/01A.jpg',
+      '/files/tours/demo-files/dist/..%2ftour.json',
+      '/files/tours/demo-files/dist/%2e%2e/tour.json',
+      '/files/tours/demo-files/dist/../masters/01A.jpg',
+      // slug distinto con traversal (segunda barrera con path.resolve)
+      '/files/tours/demo-files/dist/..%2f..%2fotro-tour/masters/x.jpg',
+      '/files/tours/demo-files/dist/tours/..%2f..%2f..%2fmasters/01A.jpg',
+      // segmentos raros: barra invertida, NUL, dobles barras
+      '/files/tours/demo-files/dist%5C..%5Cmasters/01A.jpg',
+      '/files/tours/demo-files/dist//..%2fmasters/01A.jpg',
+    ]) {
+      const res = await app.inject({ method: 'GET', url });
+      expect(res.statusCode, url).toBe(404);
+    }
+  });
+
+  it('H1-fix: el archivo legítimo de dist sigue sirviéndose (200)', async () => {
+    const app = buildApp(config);
+    const res = await app.inject({
+      method: 'GET',
+      url: '/files/tours/demo-files/dist/tours/demo-files/scenes/01A-rev01/thumb.webp',
+    });
+    expect(res.statusCode).toBe(200);
+  });
 });

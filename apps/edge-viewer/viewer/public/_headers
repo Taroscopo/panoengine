@@ -1,0 +1,7 @@
+# Cabeceras de seguridad para los estáticos del visor (H1-fix 4).
+# Workers Static Assets sirve /assets/* sin pasar por el Worker: este archivo
+# (copiado por Vite a dist-viewer/) aplica las mismas cabeceras del middleware.
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()

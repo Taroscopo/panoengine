@@ -83,20 +83,24 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
 
   // Nivelar horizonte (E4): estado vivo compartido por el visor (aplicación en
   // vivo) y la tarjeta de sliders; autoguardado con debounce de 600 ms.
-  const [correccion, setCorreccion] = useState({ pan: 0, tilt: 0, roll: 0 });
+  // E4-fix (auditoría de Cloudy): el valor INICIAL se deriva de forma
+  // SÍNCRONA por id de escena (useMemo), para que el visor se cree ya con la
+  // corrección guardada; las ediciones viven aparte, etiquetadas con el id.
+  const correccionGuardada = escena?.sphereCorrection;
+  const correccionInicial = useMemo(() => {
+    const c = correccionGuardada;
+    return c ? { pan: c.pan, tilt: c.tilt, roll: c.roll } : { pan: 0, tilt: 0, roll: 0 };
+  }, [correccionGuardada]);
+  const [edicionCorreccion, setEdicionCorreccion] = useState<{
+    id: string;
+    valor: { pan: number; tilt: number; roll: number };
+  } | null>(null);
+  const correccion =
+    edicionCorreccion && edicionCorreccion.id === escena?.id ? edicionCorreccion.valor : correccionInicial;
   const [estadoCorreccion, setEstadoCorreccion] = useState<'idle' | 'guardando' | 'guardado' | 'error'>(
     'idle',
   );
   const timerCorreccion = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const idCorreccionSync = useRef<string | null>(null);
-  useEffect(() => {
-    if (escena && idCorreccionSync.current !== escena.id) {
-      idCorreccionSync.current = escena.id;
-      const c = escena.sphereCorrection;
-      setCorreccion(c ? { pan: c.pan, tilt: c.tilt, roll: c.roll } : { pan: 0, tilt: 0, roll: 0 });
-      setEstadoCorreccion('idle');
-    }
-  }, [escena]);
   useEffect(() => {
     return () => {
       if (timerCorreccion.current) {
@@ -106,7 +110,9 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
   }, []);
 
   const cambiarCorreccion = (valor: { pan: number; tilt: number; roll: number }): void => {
-    setCorreccion(valor);
+    if (escena) {
+      setEdicionCorreccion({ id: escena.id, valor });
+    }
     if (!escena) {
       return;
     }
@@ -139,7 +145,7 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
     if (timerCorreccion.current) {
       clearTimeout(timerCorreccion.current);
     }
-    setCorreccion({ pan: 0, tilt: 0, roll: 0 });
+    setEdicionCorreccion(null);
     setEstadoCorreccion('guardando');
     api
       .parchearEscena(slug, escena.id, { sphereCorrection: null })
@@ -820,6 +826,13 @@ function DetalleEscena({
             />
           </label>
         ))}
+        {escena.hotspots.length > 0 && (
+          <p className="mt-2 flex items-start gap-1.5 rounded-control border border-ambar/40 bg-ambar/10 px-2 py-1.5 text-xs text-ambar">
+            <Icono nombre="alerta" className="mt-0.5 h-3.5 w-3.5 flex-none" />
+            Nivela antes de poner puntos: nivelar ahora mueve la foto bajo los {escena.hotspots.length} puntos
+            que ya tiene.
+          </p>
+        )}
         <Boton variante="fantasma" className="mt-1 w-full" onClick={onRestablecer}>
           Restablecer
         </Boton>

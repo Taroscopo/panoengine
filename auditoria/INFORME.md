@@ -425,3 +425,44 @@ VERIFY_EXIT=0
 **`pnpm verify` (literal, exit 0): 115 tests** (schema 27, edge-viewer 31, web 21, server 36 — **+12 nuevos**), biome sin errores ni avisos.
 
 ```text
+
+---
+
+## H1-fix + E4-fix (auditoría de Cloudy sobre 90ba94e — aprobada con condiciones)
+
+**CI del commit auditado 90ba94e: `success`** (56 s; «Deploy staging» en rojo solo por falta de secrets, como está documentado).
+
+### 1) H1a — bypass de /files cerrado (doble barrera)
+**Antes (curl real, server corriendo):**
+```
+/files/tours/demo-e3b/dist/..%2fmasters/01M5BK5YSMKFGZ8CKFSTS4YG59.jpg → 200 241975B
+/files/tours/demo-e3b/dist/%2e%2e%2fmasters/01M5BK5YSMKFGZ8CKFSTS4YG59.jpg → 200 241975B
+/files/tours/demo-e3b/dist/..%2ftour.json → 200 1894B
+```
+**Después (mismo server reiniciado con el fix):**
+```
+/files/tours/demo-e3b/dist/..%2fmasters/01M5BK5YSMKFGZ8CKFSTS4YG59.jpg → 404
+/files/tours/demo-e3b/dist/%2e%2e%2fmasters/01M5BK5YSMKFGZ8CKFSTS4YG59.jpg → 404
+/files/tours/demo-e3b/dist/..%2ftour.json → 404
+(/files/.../scenes/<id>-<rev>/preview.webp → 200, el legítimo sigue)
+```
+Arreglo: tras decodificar se rechaza cualquier «..», «\», NUL o segmento «.»/vacío; segunda barrera con `path.resolve` exigiendo quedar dentro de `{dataDir}/tours/{slug}/dist/`. Tests: 9 rutas de bypass/segmentos raros → 404 + legítimo 200 (files-dist.test.ts ahora 5 casos).
+
+### 2) E4 — la corrección guardada ya se aplica al recargar y al cambiar de escena
+Causa confirmada (la de la auditoría): estado inicial asíncrono + efecto vivo guardado por `listoRef`. Fix: valor inicial derivado **síncronamente** (`useMemo` sobre `escena.sphereCorrection`; la edición vive aparte etiquetada por id, así los guardados no pisan los sliders) + aplicación también en el handler `'ready'`. **Verificación POR CÓDIGO en Chromium** (medición de píxeles con pngjs en local, sin herramientas externas; el proxy del marcador NO vale porque los puntos no acompañan a la foto — ver punto 3):
+- sin corrección: verde medio de la columna central del canvas = 111.2 (foto demo = degradado);
+- `pan=40` por API + **RECARGAR**: verde = 118.1 (**Δ=6.8 ≈ teórico 80·(40/360)=8.9** → la foto rotó en el visor) y el panel muestra 40;
+- **Restablecer**: verde vuelve a 111.2 (Δ=0.0) y `sphereCorrection` desaparece del tour.json;
+- cambio de escena A (sin corrección) → B (pan −25): el panel muestra −25; al volver a A muestra 0.
+
+### 3) Marcadores vs. sphereCorrection — medición + propuesta (NO arreglado, según orden)
+**Medición propia que confirma la de Cloudy:** con pan=40 la foto cambia (Δcolor=6.8) y el marcador queda en x=694 px **exacto** (Δx=0.0). Nivelar después de poner puntos desplaza la foto bajo ellos.
+- **(A) IMPLEMENTADO:** aviso ámbar en la tarjeta «Nivelar horizonte» cuando la escena tiene puntos: «Nivela antes de poner puntos: nivelar ahora mueve la foto bajo los N puntos que ya tiene».
+- **(B) PROPUESTA (pendiente de decisión de Andrés):** guardar los puntos en **coordenadas de la foto** y convertir al dibujar (editor y visor público): `yaw_mundo = corregir(yaw_foto, sphereCorrection)`, la inversa al editar. **Costo:** exige reinterpretar `hotspots.yaw/pitch` → **schemaVersion 2** con paso de migración (aplicar la corrección de cada escena a sus puntos UNA vez) y **republicar** los tours ya publicados (solo tour.json; los tiles/revHash no cambian). Toca: migrate.ts (+tests), editor (conversión en markers y en clic), visor público (conversión en nodos/links) y una pasada de re-publicación por tour. Estimación honesta: ~1 etapa completa con riesgo de aritmética angular en los bordes (±180°).
+
+### 4) H1b — estáticos del visor y CI
+`viewer/public/_headers` (copiado por Vite a dist-viewer/; Workers Static Assets lo aplica a /assets/* que el Worker no ve) con nosniff/Referrer-Policy/Permissions-Policy. `set -eo pipefail` en el paso de deploy. Smoke del CI ampliado: 3/3 comprueba `nosniff` en un archivo real de `/assets/` del index (correrá tras el primer deploy).
+
+**`pnpm verify` (literal, exit 0): 117 tests** (schema 27, edge-viewer 31, web 21, server 38).
+
+```text

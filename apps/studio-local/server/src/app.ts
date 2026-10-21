@@ -19,21 +19,47 @@ const HOSTS_LOCALES = new Set(['127.0.0.1', 'localhost', '[::1]']);
  * H1 (orden del propietario): /files solo sirve el CONTENIDO PUBLICABLE de
  * dist/ — nunca los masters originales (RULES.md §4: masters no salen del
  * disco local por HTTP). Patrón: /files/tours/{slug}/dist/…
+ *
+ * H1-fix (auditoría de Cloudy): el guard original solo decodificaba y aplicaba
+ * regex, y `dist/..%2fmasters/…` COLABA el master (la forma plana `../` la
+ * normalizaba el propio cliente). Doble barrera ahora:
+ *  1) tras decodificar, se rechaza cualquier «..», «\», NUL o segmento
+ *     vacío/«.» (por si el prefijo legítimo «dist/» va seguido de traversal);
+ *  2) la ruta se resuelve con path.resolve y DEBE quedar dentro de
+ *     {dataDir}/tours/{slug}/dist/.
  */
 const RUTA_FILES_VALIDA = /^\/files\/tours\/[a-z0-9]+(?:-[a-z0-9]+)*\/dist(?:\/|$)/;
 
-function rutaFilesPermitida(url: string | undefined): boolean {
+function rutaFilesPermitida(url: string | undefined, dataDir: string): boolean {
   if (url === undefined) {
     return true; // no es /files → el guard no aplica
   }
   if (!url.startsWith('/files/')) {
     return true;
   }
+  let decodificada: string;
   try {
-    return RUTA_FILES_VALIDA.test(decodeURIComponent(url.split('?')[0] ?? ''));
+    decodificada = decodeURIComponent(url.split('?')[0] ?? '');
   } catch {
     return false; // URL malformada (%ZZ) → bloqueada
   }
+  if (!RUTA_FILES_VALIDA.test(decodificada)) {
+    return false;
+  }
+  // Barrera 1: ningún segmento de traversal tras decodificar.
+  const relativa = decodificada.slice('/files/'.length);
+  if (relativa.includes('\\') || relativa.includes('\0')) {
+    return false;
+  }
+  const segmentos = relativa.split('/').filter((s) => s !== '');
+  if (segmentos.some((s) => s === '..' || s === '.')) {
+    return false;
+  }
+  // Barrera 2: la ruta resuelta tiene que quedar dentro de tours/{slug}/dist.
+  const slug = segmentos[1] ?? '';
+  const raizDist = path.resolve(dataDir, 'tours', slug, 'dist');
+  const destino = path.resolve(dataDir, relativa);
+  return destino === raizDist || destino.startsWith(`${raizDist}${path.sep}`);
 }
 
 function hostLocal(valor: string | undefined): boolean {
@@ -85,7 +111,7 @@ export function buildApp(config: StudioConfig): FastifyInstance {
         .send({ error: 'El estudio solo acepta peticiones locales (127.0.0.1/localhost)' });
       return;
     }
-    if (!rutaFilesPermitida(req.raw.url)) {
+    if (!rutaFilesPermitida(req.raw.url, config.dataDir)) {
       await reply.code(404).send({ error: 'Archivo no encontrado' });
       return;
     }
