@@ -1,0 +1,48 @@
+{
+  "escena": "Comedor Principal",
+  "canvas": {
+    "dpr": 2,
+    "cssW": 830,
+    "cssH": 768,
+    "backW": 1660,
+    "backH": 1536
+  },
+  "tilesReposo": {
+    "l0": 0,
+    "l1": 4,
+    "l2": 0
+  },
+  "msHastaCanvas": 6265,
+  "msHastaUltimaTileReposo": 1276,
+  "master": {
+    "ancho": 11904,
+    "alto": 5952
+  },
+  "pxGrado": {
+    "masterPipeline": 31.29,
+    "editorCss": 8.53,
+    "editorBackingDPR": 17.07,
+    "coberturaEnReposo": "55 % del master",
+    "enZoom60Css": 12.8,
+    "enZoom60Backing": 25.6,
+    "coberturaEnZoom60": "82 % del master",
+    "enZoom30Backing": 51.2,
+    "coberturaEnZoom30": "164 % del master"
+  },
+  "tilesZoomDefault": {
+    "l0": 0,
+    "l1": 0,
+    "l2": 16
+  },
+  "tilesZoomProfundo": {
+    "l0": 0,
+    "l1": 4,
+    "l2": 16
+  },
+  "msZoomHastaUltimaTileL2": 3149,
+  "psnr": {
+    "tile": "l2/3_8.webp",
+    "mse": 6.1,
+    "psnrDb": 40.27
+  }
+}

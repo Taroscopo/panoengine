@@ -466,3 +466,33 @@ Causa confirmada (la de la auditoría): estado inicial asíncrono + efecto vivo 
 **`pnpm verify` (literal, exit 0): 117 tests** (schema 27, edge-viewer 31, web 21, server 38).
 
 ```text
+
+---
+
+## E5a — Calidad máxima de la vista (EDITOR v3, orden de Andrés) — medido con números
+
+**Escena medida:** «Comedor Principal» del tour real «aurora» (master original 11904×5952 → pipeline 11264×5632). DPR del navegador forzado a 2 (contexto Chromium). Medición local: playwright + conteo de peticiones de tiles + sharp/pngjs. Evidencia: `auditoria/e5a/medidas.json` + recortes 1:1 `tile-l2.png` / `master-recorte.png`.
+
+### Hallazgo principal (BUG real, corregido en esta etapa)
+El editor solo activaba la vista de tiles si el **job en memoria** decía «done»: al reiniciar el estudio, la cola nace vacía y **el editor quedaba para siempre en el preview borroso de 1024×512** (medido: 0 peticiones de tiles tras reinicio, 8.5 px/grado = 27 % del master). Fix: el servidor informa `tilesListos` leyendo el DISCO (`dist/.../l0` existe) y el SSE marca las escenas al terminar su job. Sin tocar RULES ni el pipeline.
+
+### Tabla antes/después (DPR 2, canvas 830×768 CSS → 1660×1536 real)
+| Medida | Antes del fix (tras reiniciar) | Después |
+|---|---|---|
+| Tiles pedidos en reposo | **0** (solo preview.webp) | **4 × L1** (mosaico 5120×2560) |
+| Nitidez en reposo | 8.5 px/° (27 % del master), borroso | 17.1 px/° (55 % del master); última tile a **1.6 s** del goto |
+| Zoom máximo por defecto (fov 60°) | sin cambio (0 tiles) | **16 × L2** cargados; 25.6 px/° (82 % del master) |
+| Zoom profundo (zoomLimit 30°) | — | L1+L2; última L2 a **3.3 s**; 51.2 px/° (**164 %**: el canvas pide más de lo que el master tiene → el límite ya es la cámara original, no el pipeline) |
+| Calidad del pipeline (webp q80 vs fuente) | — | **PSNR 40.27 dB** (MSE 6.1) en recorte 1:1 master-procesado vs tile L2 — pérdida de compresión visualmente imperceptible (>36 dB se considera excelente) |
+
+### Configuración verificada (ya óptima, sin cambios necesarios)
+- `devicePixelRatio` aplicado por PSV (canvas backing = 2× CSS medido) y `antialias: true` del renderer (línea 3149 del core).
+- Adaptador de tiles con `antialias: true` (antialiasing de tiles de alta resolución) y `baseBlur: true` (el preview se difumina mientras cargan los tiles, sin «salto» feo).
+- La cola del adaptador carga por prioridad **centrada en la vista** (4 tiles visibles en reposo, no la pirámide completa).
+- Selector de nivel correcto: con DPR 2 y fov 60° pide L2 (25.6 px/° > 14.2 px/° de L1) — sin placeholder borroso al terminar.
+
+### Propuestas (NO implementadas, según orden)
+1. **webp q80 → q85/q90 en L2**: PSNR ya en 40 dB; subir calidad aumentaría ~15–30 % el peso de los 128 tiles L2 (~26 KB/tile ahora) con ganancia invisible. NO recomendado; si Andrés quiere perfección absoluta: enmienda a RULES §3 (presupuestos/coeficiente de nivel máximo) y re-tileado con cambio de revHash.
+2. **El límite real en zoom extremo es el master** (164 % de cobertura pedido a fov 30/DPR 2): más resolución exigiría subir MASTER_WIDTH (11264) — enmienda a RULES §3, no recomendado (el X5 entrega 11904×5952 y ya casi se aprovecha todo).
+
+**`pnpm verify` (literal, exit 0): 117 tests**, biome limpio. Sin deploy, RULES intacto.

@@ -13,6 +13,8 @@ export interface SceneJob {
 export interface TourResponse {
   tour: Tour;
   jobs: SceneJob[];
+  /** Escenas con pirámide de tiles ya en disco (E5a): la verdad, no la cola. */
+  tilesListos: string[];
 }
 
 async function json<T>(res: Response): Promise<T> {

@@ -24,6 +24,7 @@ const AHORA = (): string => new Date().toISOString();
 export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
   const [tour, setTour] = useState<Tour | null>(null);
   const [jobs, setJobs] = useState<SceneJob[]>([]);
+  const [tilesListos, setTilesListos] = useState<string[]>([]);
   const [escenaId, setEscenaId] = useState<string | null>(null);
   const [hotspotSel, setHotspotSel] = useState<string | null>(null);
   const [modoAgregar, setModoAgregar] = useState<'nav' | 'info' | 'link' | null>(null);
@@ -39,6 +40,7 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
     const res = await api.leerTour(slug);
     setTour(res.tour);
     setJobs(res.jobs);
+    setTilesListos(res.tilesListos);
     setEscenaId((actual) => actual ?? res.tour.defaultSceneId ?? res.tour.scenes[0]?.id ?? null);
   }, [slug]);
 
@@ -65,6 +67,10 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
       if (dato.type === 'snapshot') {
         setJobs(dato.jobs);
       } else {
+        if (dato.job.status === 'done') {
+          // E5a: la pirámide quedó en disco → el editor pasa a resolución máxima.
+          setTilesListos((prev) => (prev.includes(dato.job.sceneId) ? prev : [...prev, dato.job.sceneId]));
+        }
         setJobs((prev) => {
           const otros = prev.filter((j) => j.sceneId !== dato.job.sceneId);
           return [...otros, dato.job];
@@ -461,7 +467,11 @@ export function EditorPage({ slug, onVolver }: Props): React.JSX.Element {
                 <div className="h-full overflow-hidden rounded-tarjeta border border-linea">
                   <PanoPreview
                     previewUrl={api.archivoEscena(slug, escena, 'preview.webp')}
-                    panoTiles={jobDeEscena?.status === 'done' ? api.panoramaTiles(slug, escena) : null}
+                    panoTiles={
+                      jobDeEscena?.status === 'done' || tilesListos.includes(escena.id)
+                        ? api.panoramaTiles(slug, escena)
+                        : null
+                    }
                     hotspots={escena.hotspots}
                     hotspotSeleccionado={hotspotSel}
                     modoAgregar={modoAgregar}

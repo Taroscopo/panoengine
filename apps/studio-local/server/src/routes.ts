@@ -146,7 +146,21 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
     if (!draft) {
       return reply.code(404).send(errorReply(`No existe el tour «${slug}»`));
     }
-    return { tour: draft, jobs: queue.snapshot(slug) };
+    // E5a: la pirámide en disco es la verdad — la cola de jobs vive en memoria
+    // y muere al reiniciar; sin esto el editor quedaría en el preview borroso.
+    const tilesListos: string[] = [];
+    for (const escena of draft.scenes) {
+      const dirTiles = path.join(store.distSceneDir(slug, escena.id, escena.revHash), 'l0');
+      if (
+        await fs
+          .stat(dirTiles)
+          .then(() => true)
+          .catch(() => false)
+      ) {
+        tilesListos.push(escena.id);
+      }
+    }
+    return { tour: draft, jobs: queue.snapshot(slug), tilesListos };
   });
 
   app.patch('/api/tours/:slug', async (req, reply) => {
